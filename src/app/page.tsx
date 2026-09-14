@@ -20,7 +20,7 @@ const moduleCards = [
 const addCategories = ["Kelompok", "Pemasukan", "Pengeluaran", "Anggota", "Laporan"] as const;
 
 type Summary = { totalIuran: number; totalPengeluaran: number };
-type OpenCard = { id: number; name: string; note: string; icon: string };
+type OpenCard = { id: number; name: string; note: string; icon: string; amount: number; parentId: number | null; category: string };
 
 function shuffledColors() {
   return [...colors].sort(() => Math.random() - 0.5);
@@ -31,7 +31,8 @@ function rupiah(value: number) {
 }
 
 export default function DashboardPage() {
-  const [funds, setFunds] = useState(starterFunds);
+  const [funds, setFunds] = useState<OpenCard[]>(starterFunds.map((fund) => ({ ...fund, parentId: null, category: "Kelompok" })));
+  const [childCards, setChildCards] = useState<OpenCard[]>([]);
   const [cardColors, setCardColors] = useState(shuffledColors);
   const [notice, setNotice] = useState("");
   const [summary, setSummary] = useState<Summary>({ totalIuran: 0, totalPengeluaran: 0 });
@@ -71,15 +72,36 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+    const loadCards = async () => {
+      const { data, error } = await client.from("kartu_kas").select("id,parent_id,kategori,nama,catatan,nominal,ikon").order("urutan", { ascending: true });
+      if (error) { setNotice("Database tersambung, tetapi kartu belum bisa dibaca"); return; }
+      const cards = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: Number(card.nominal ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori }));
+      setFunds(cards.filter((card) => card.parentId === null));
+      setChildCards(cards.filter((card) => card.parentId !== null));
+    };
+    void loadCards();
+  }, []);
+
+  useEffect(() => {
     const refreshHome = () => setCardColors(shuffledColors());
     window.addEventListener("home-refresh", refreshHome);
     return () => window.removeEventListener("home-refresh", refreshHome);
   }, []);
 
-  function addFund(category = "Kelompok") {
+  async function addFund(category = "Kelompok") {
     const name = window.prompt(`Nama ${category.toLowerCase()} baru`, `${category} Baru`);
     if (!name?.trim()) return;
-    setFunds((current) => [...current, { id: Date.now(), name: name.trim(), amount: 0, note: `${category} pembukuan baru`, icon: "+" }]);
+    const parentId = activeFund?.id ?? null;
+    const draft: OpenCard = { id: 0, name: name.trim(), amount: 0, note: `${category} pembukuan baru`, icon: "+", parentId, category };
+    if (supabase) {
+      const { data, error } = await supabase.from("kartu_kas").insert({ parent_id: parentId, kategori: category, nama: draft.name, catatan: draft.note, nominal: 0, ikon: "+" }).select("id").single();
+      if (error) { setNotice("Kartu gagal disimpan ke database"); return; }
+      draft.id = Number(data.id);
+    }
+    if (parentId) setChildCards((current) => [...current, draft]);
+    else setFunds((current) => [...current, draft]);
     setShowAddMenu(false);
     setNotice(`${category} berhasil ditambahkan`);
     window.setTimeout(() => setNotice(""), 1800);
@@ -119,6 +141,7 @@ export default function DashboardPage() {
       {activeFund && <section className="nested-panel" aria-label={`Isi kartu ${activeFund.name}`}>
         <div className="nested-heading"><div><span className="fund-label">KARTU TERPILIH</span><h3>{activeFund.name}</h3><p>Pilih modul pembukuan untuk kartu ini.</p></div><button className="panel-close" onClick={() => setActiveFund(null)} aria-label="Tutup kartu">×</button></div>
         <div className="module-grid">{moduleCards.map(([name, detail, icon]) => <button className="module-card" key={name} onClick={() => setNotice(`${name} untuk ${activeFund.name}`)}><span className="module-icon">{icon}</span><b>{name}</b><small>{detail}</small><span className="module-arrow">↗</span></button>)}</div>
+        {childCards.filter((card) => card.parentId === activeFund.id).length > 0 && <div className="child-card-list"><span className="fund-label">KARTU DI DALAM {activeFund.name.toUpperCase()}</span>{childCards.filter((card) => card.parentId === activeFund.id).map((card) => <button key={card.id} onClick={() => openFund(card)}><span>{card.icon}</span><b>{card.name}</b><small>{card.category}</small><i>↗</i></button>)}</div>}
         <button className="nested-add" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span>＋</span><b>Tambah kartu di dalam {activeFund.name}</b><small>Kelompok, pemasukan, pengeluaran, anggota, atau laporan</small></button>
       </section>}
 
