@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import SiteChrome from "@/components/site-chrome";
 
 export const metadata: Metadata = {
   title: "Kas Bendungan — Ruang Kas Warga",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="id" className="h-full antialiased">
-      <body>{children}</body>
+      <body><SiteChrome>{children}</SiteChrome></body>
     </html>
   );
 }
