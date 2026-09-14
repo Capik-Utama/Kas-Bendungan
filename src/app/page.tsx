@@ -88,7 +88,7 @@ export default function DashboardPage() {
       <div className="grain" aria-hidden="true" />
       <section className="hero-row">
         <div className="balance-card">
-          <div className="balance-top"><span>Total seluruh kas</span><span className="status-dot">● {isSupabaseConfigured ? "Terhubung" : "Demo"}</span></div>
+          <div className="balance-top"><span>Total seluruh kas</span>{isSupabaseConfigured && <span className="status-dot">● Terhubung</span>}</div>
           <strong>{loadingSummary ? "Memuat..." : rupiah(total)}</strong>
           <div className="balance-bottom"><span>Terakhir diperbarui hari ini</span><span>↗</span></div>
         </div>
