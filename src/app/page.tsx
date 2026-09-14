@@ -11,6 +11,9 @@ const starterFunds = [
 ];
 
 const colors = ["coral", "blue", "mint", "yellow", "lavender", "peach", "sky"];
+function shuffledColors() {
+  return [...colors].sort(() => Math.random() - 0.5);
+}
 const menuItems = [
   ["⌂", "Dashboard", "Ringkasan kas kampung"],
   ["▣", "Catatan transaksi", "Pemasukan & pengeluaran"],
@@ -26,12 +29,14 @@ function rupiah(value: number) {
 export default function DashboardPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [funds, setFunds] = useState(starterFunds);
+  const [cardColors, setCardColors] = useState(shuffledColors);
   const [activeMenu, setActiveMenu] = useState("Dashboard");
   const [notice, setNotice] = useState("");
   const total = useMemo(() => funds.reduce((sum, fund) => sum + fund.amount, 0), [funds]);
 
   function shuffleCards() {
     setFunds((current) => [...current].sort(() => Math.random() - 0.5));
+    setCardColors(shuffledColors());
     setNotice("Warna kartu diperbarui");
     window.setTimeout(() => setNotice(""), 1800);
   }
@@ -81,7 +86,7 @@ export default function DashboardPage() {
 
       <section className="fund-grid" aria-label="Kantong kas kampung">
         {funds.map((fund, index) => (
-          <button key={fund.id} className={`fund-card ${colors[index % colors.length]}`} onClick={() => { setNotice(`${fund.name}: ${rupiah(fund.amount)}`); window.setTimeout(() => setNotice(""), 2000); }}>
+          <button key={fund.id} className={`fund-card ${cardColors[index % cardColors.length]}`} onClick={() => { setNotice(`${fund.name}: ${rupiah(fund.amount)}`); window.setTimeout(() => setNotice(""), 2000); }}>
             <div className="fund-icon">{fund.icon}</div>
             <div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4><p>{fund.note}</p></div>
             <div className="fund-amount">{rupiah(fund.amount)}</div>
