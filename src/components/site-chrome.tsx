@@ -25,7 +25,11 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("kas-bendungan-theme");
-    if (savedTheme && themes.some(([value]) => value === savedTheme)) setTheme(savedTheme);
+    if (savedTheme && themes.some(([value]) => value === savedTheme)) {
+      // The saved preference is applied after hydration to avoid a server/client mismatch.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTheme(savedTheme);
+    }
   }, []);
 
   useEffect(() => { window.localStorage.setItem("kas-bendungan-theme", theme); }, [theme]);
