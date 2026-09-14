@@ -47,6 +47,7 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
         </button>
       </header>
       <div className="site-content">{children}</div>
+      <footer className="dashboard-footer"><span>©2026 Kas Desa - By Capik</span></footer>
       {notice && <div className="toast">{notice}</div>}
       {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
       <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-hidden={!drawerOpen}>

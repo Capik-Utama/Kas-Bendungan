@@ -110,8 +110,6 @@ export default function DashboardPage() {
         <button className="add-card" onClick={addFund}><span className="plus">+</span><span><b>Tambah kantong kas</b><small>Buat kategori baru</small></span></button>
       </section>
 
-      <footer className="dashboard-footer"><span>Kas Bendungan <b>•</b> Transparan untuk semua</span><span>2026</span></footer>
-
       {notice && <div className="toast">{notice}</div>}
     </main>
   );
