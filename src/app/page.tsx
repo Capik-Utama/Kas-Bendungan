@@ -90,6 +90,11 @@ export default function DashboardPage() {
     return () => window.removeEventListener("home-refresh", refreshHome);
   }, []);
 
+  useEffect(() => {
+    if (!activeFund) return;
+    window.requestAnimationFrame(() => document.querySelector(".nested-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [activeFund]);
+
   async function addFund(category = "Kelompok") {
     const name = window.prompt(`Nama ${category.toLowerCase()} baru`, `${category} Baru`);
     if (!name?.trim()) return;
@@ -129,7 +134,7 @@ export default function DashboardPage() {
             <div className="fund-icon">{fund.icon}</div>
             <div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4><p>{fund.note}</p></div>
             <div className="fund-amount">{rupiah(fund.amount)}</div>
-            <span className="card-arrow">↗</span>
+            <span className="card-arrow">Buka ↗</span>
           </button>
         ))}
         <button className="add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}>
