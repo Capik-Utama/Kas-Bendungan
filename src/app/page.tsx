@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 const starterFunds = [
@@ -16,11 +17,11 @@ function shuffledColors() {
   return [...colors].sort(() => Math.random() - 0.5);
 }
 const menuItems = [
-  ["⌂", "Dashboard", "Ringkasan kas kampung"],
-  ["▣", "Catatan transaksi", "Pemasukan & pengeluaran"],
-  ["♙", "Data warga", "Daftar warga kampung"],
-  ["◒", "Laporan", "Rekap transparansi kas"],
-  ["⚙", "Pengaturan", "Preferensi aplikasi"],
+  ["⌂", "Dashboard", "Ringkasan kas kampung", "/"],
+  ["▣", "Catatan transaksi", "Pemasukan & pengeluaran", "/iuran"],
+  ["♙", "Data warga", "Daftar warga kampung", "/warga"],
+  ["◒", "Laporan", "Rekap transparansi kas", "/riwayat"],
+  ["⚙", "Pengaturan", "Preferensi aplikasi", "#pengaturan"],
 ];
 
 function rupiah(value: number) {
@@ -30,6 +31,7 @@ function rupiah(value: number) {
 type Summary = { totalIuran: number; totalPengeluaran: number };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [funds, setFunds] = useState(starterFunds);
   const [cardColors, setCardColors] = useState(shuffledColors);
@@ -138,7 +140,7 @@ export default function DashboardPage() {
       <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-hidden={!drawerOpen}>
         <div className="drawer-head"><div className="drawer-brand"><span className="mini-house">⌂</span><span>Kas<br /><b>Bendungan</b></span></div><button onClick={() => setDrawerOpen(false)} className="close-drawer" aria-label="Tutup menu">×</button></div>
         <div className="profile-card"><div className="avatar">BD</div><div><b>Balai Desa</b><span>Pengelola kas warga</span></div><span className="profile-more">•••</span></div>
-        <nav className="drawer-nav">{menuItems.map(([icon, label, detail]) => <button key={label} className={activeMenu === label ? "selected" : ""} onClick={() => { setActiveMenu(label); if (label !== "Dashboard") setNotice(`${label} siap dikembangkan`); if (label !== "Dashboard") window.setTimeout(() => setNotice(""), 1800); }}><span className="nav-icon">{icon}</span><span><b>{label}</b><small>{detail}</small></span>{activeMenu === label && <i>•</i>}</button>)}</nav>
+        <nav className="drawer-nav">{menuItems.map(([icon, label, detail, path]) => <button key={label} className={activeMenu === label ? "selected" : ""} onClick={() => { setActiveMenu(label); if (path === "#pengaturan") { setNotice("Pengaturan siap dikembangkan"); window.setTimeout(() => setNotice(""), 1800); return; } router.push(path); setDrawerOpen(false); }}><span className="nav-icon">{icon}</span><span><b>{label}</b><small>{detail}</small></span>{activeMenu === label && <i>•</i>}</button>)}</nav>
         <div className="drawer-tip"><span>✦</span><p><b>Ruang bersama</b><br />Catatan kas yang rapi membuat kampung makin berarti.</p></div>
         <div className="drawer-foot">Versi 1.0 <span>•</span> Bendungan</div>
       </aside>
