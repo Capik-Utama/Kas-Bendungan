@@ -40,3 +40,22 @@ button { font: inherit; cursor: pointer; border: 0; }
 .folder-toolbar { display:flex; align-items:center; gap:18px; margin-bottom:58px; color:var(--muted); font:10px 'DM Mono',monospace; }
 .back-link { color:var(--ink); text-decoration:none; }.back-link:hover { color:#e1644f; }.folder-path { opacity:.7; }.folder-heading { display:flex; align-items:end; justify-content:space-between; gap:30px; }.folder-heading h1 { margin:10px 0 6px; font:600 clamp(42px,7vw,72px)/.95 'Playfair Display',serif; }.folder-heading p { margin:0; color:var(--muted); font-size:13px; }.folder-total { min-width:190px; padding:16px 18px; background:#22231f; color:#f7f3ea; box-shadow:8px 8px 0 #ded8ca; transform:rotate(1deg); }.folder-total span,.folder-total b { display:block; }.folder-total span { color:#aaa99f; font:10px 'DM Mono',monospace; }.folder-total b { margin-top:12px; font:500 17px 'DM Mono',monospace; }.folder-divider { height:1px; margin-top:48px; background:var(--line); }.folder-section { margin-top:42px; }.folder-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }.folder-grid .add-card { grid-column:1; }.module-section { margin-top:58px; padding-top:25px; border-top:1px solid var(--line); }.module-section .module-grid { margin-top:18px; }.module-card { text-decoration:none; }.folder-loading,.empty-folder { position:relative; z-index:1; max-width:1240px; margin:12vh auto; }.empty-folder h1 { font:600 42px 'Playfair Display',serif; }.empty-folder p { color:var(--muted); }.folder-hint { color:var(--muted); font-size:11px; }
 @media (max-width:760px) { .folder-shell { padding:26px 20px 60px; }.folder-toolbar { margin-bottom:42px; flex-wrap:wrap; gap:8px 14px; }.folder-heading { align-items:flex-start; flex-direction:column; }.folder-heading h1 { font-size:48px; }.folder-total { width:100%; }.folder-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }.folder-grid .fund-card,.folder-grid .add-card { min-height:170px; padding:14px; }.folder-section .section-heading { align-items:flex-start; flex-direction:column; gap:10px; }.module-section .module-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }.module-section .module-card { min-height:120px; padding:13px; } }
+
+/* Folder pages intentionally share the home page rhythm and balance-card treatment. */
+.folder-shell { padding-top:0; }
+.folder-toolbar { margin-top:0; padding-top:34px; margin-bottom:0; }
+.folder-heading { display:block; padding:58px 0 34px; }
+.folder-heading h1 { margin:8px 0 5px; font-size:clamp(36px,5vw,54px); }
+.folder-heading p { font-size:12px; }
+.folder-balance { position:relative; z-index:1; max-width:1240px; margin:0 auto; padding:25px 25px 20px; background:#22231f; color:#f7f3ea; box-shadow:16px 17px 0 #ded8ca; transform:rotate(1.4deg); }
+.folder-balance strong { display:block; margin:23px 0 27px; font:500 27px 'DM Mono',monospace; letter-spacing:-.08em; }
+.folder-balance .balance-top,.folder-balance .balance-bottom { display:flex; justify-content:space-between; color:#aaa99f; font:10px 'DM Mono',monospace; letter-spacing:.04em; }
+.folder-balance .balance-bottom { padding-top:13px; border-top:1px solid #44453e; font-size:9px; }
+.folder-divider { margin-top:76px; }
+.folder-section { margin-top:58px; }
+.folder-section .section-heading { margin-bottom:24px; }
+.folder-section .section-heading h3 { margin-top:8px; }
+.theme-dark .folder-balance,.theme-blue-black .folder-balance,.theme-pink-black .folder-balance { background:#0b0d10; color:#f4f6f8; box-shadow:16px 17px 0 #30343b; }
+.theme-blue .folder-balance,.theme-blue-white .folder-balance { background:#123b59; color:#f5fbff; box-shadow:16px 17px 0 #bed1df; }
+.theme-pink .folder-balance,.theme-pink-white .folder-balance { background:#64213d; color:#fff7fa; box-shadow:16px 17px 0 #e4becb; }
+@media (max-width:760px) { .folder-toolbar { padding-top:26px; }.folder-heading { padding:48px 0 25px; }.folder-heading h1 { font-size:42px; }.folder-balance { padding:18px 18px 15px; transform:none; }.folder-balance strong { margin:17px 0 19px; font-size:24px; }.folder-divider { margin-top:58px; }.folder-section { margin-top:42px; } }
