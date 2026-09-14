@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import "./globals.css";
 import { TopNav } from "@/components/top-nav";
 
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
   description: "Aplikasi pengelolaan kas kampung berbasis Next.js dan Supabase",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="id" className="h-full antialiased">
       <body className="min-h-full bg-zinc-50 text-zinc-900">

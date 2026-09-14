@@ -15,9 +15,7 @@ type IuranItem = {
   nominal: number;
   tanggal_bayar: string;
   keterangan: string;
-  warga: {
-    nama: string;
-  }[] | null;
+  warga_nama: string;
 };
 
 export default function IuranPage() {
@@ -48,7 +46,25 @@ export default function IuranPage() {
     }
 
     setWarga((wargaResult.data as WargaOption[]) ?? []);
-    setItems((iuranResult.data as IuranItem[]) ?? []);
+    setItems(
+      ((iuranResult.data ?? []) as Array<{
+        id: number;
+        bulan: string;
+        nominal: number;
+        tanggal_bayar: string;
+        keterangan: string;
+        warga: { nama: string } | { nama: string }[] | null;
+      }>).map((item) => ({
+        id: item.id,
+        bulan: item.bulan,
+        nominal: item.nominal,
+        tanggal_bayar: item.tanggal_bayar,
+        keterangan: item.keterangan,
+        warga_nama: Array.isArray(item.warga)
+          ? (item.warga[0]?.nama ?? "-")
+          : (item.warga?.nama ?? "-"),
+      })),
+    );
     setError(null);
   };
 
@@ -148,7 +164,7 @@ export default function IuranPage() {
             {items.map((item) => (
               <tr key={item.id} className="border-t border-zinc-200">
                 <td className="px-4 py-3">{item.tanggal_bayar}</td>
-                <td className="px-4 py-3">{item.warga?.[0]?.nama ?? "-"}</td>
+                <td className="px-4 py-3">{item.warga_nama}</td>
                 <td className="px-4 py-3">{item.bulan}</td>
                 <td className="px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
                 <td className="px-4 py-3">{item.keterangan || "-"}</td>

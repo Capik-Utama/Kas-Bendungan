@@ -31,16 +31,40 @@ alter table public.pengeluaran enable row level security;
 
 drop policy if exists "Public can read warga" on public.warga;
 drop policy if exists "Public can insert warga" on public.warga;
+drop policy if exists "Authenticated can read warga" on public.warga;
+drop policy if exists "Authenticated can insert warga" on public.warga;
 drop policy if exists "Public can read iuran" on public.iuran;
 drop policy if exists "Public can insert iuran" on public.iuran;
+drop policy if exists "Authenticated can read iuran" on public.iuran;
+drop policy if exists "Authenticated can insert iuran" on public.iuran;
 drop policy if exists "Public can read pengeluaran" on public.pengeluaran;
 drop policy if exists "Public can insert pengeluaran" on public.pengeluaran;
+drop policy if exists "Authenticated can read pengeluaran" on public.pengeluaran;
+drop policy if exists "Authenticated can insert pengeluaran" on public.pengeluaran;
 
-create policy "Public can read warga" on public.warga for select using (true);
-create policy "Public can insert warga" on public.warga for insert with check (true);
+create policy "Authenticated can read warga" on public.warga
+  for select
+  to authenticated
+  using (auth.uid() is not null);
+create policy "Authenticated can insert warga" on public.warga
+  for insert
+  to authenticated
+  with check (auth.uid() is not null);
 
-create policy "Public can read iuran" on public.iuran for select using (true);
-create policy "Public can insert iuran" on public.iuran for insert with check (true);
+create policy "Authenticated can read iuran" on public.iuran
+  for select
+  to authenticated
+  using (auth.uid() is not null);
+create policy "Authenticated can insert iuran" on public.iuran
+  for insert
+  to authenticated
+  with check (auth.uid() is not null);
 
-create policy "Public can read pengeluaran" on public.pengeluaran for select using (true);
-create policy "Public can insert pengeluaran" on public.pengeluaran for insert with check (true);
+create policy "Authenticated can read pengeluaran" on public.pengeluaran
+  for select
+  to authenticated
+  using (auth.uid() is not null);
+create policy "Authenticated can insert pengeluaran" on public.pengeluaran
+  for insert
+  to authenticated
+  with check (auth.uid() is not null);

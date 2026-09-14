@@ -38,14 +38,27 @@ export default function RiwayatPage() {
         return;
       }
 
-      const iuranItems: RiwayatItem[] = (iuranResult.data ?? []).map((item) => ({
-        id: `iuran-${item.id}`,
-        tanggal: item.tanggal_bayar,
-        tipe: "MASUK",
-        sumber: item.warga?.[0]?.nama ? `Iuran - ${item.warga[0].nama}` : "Iuran",
-        nominal: Number(item.nominal ?? 0),
-        keterangan: item.keterangan || item.bulan || "-",
-      }));
+      const iuranItems: RiwayatItem[] = ((iuranResult.data ?? []) as Array<{
+        id: number;
+        tanggal_bayar: string;
+        nominal: number;
+        bulan: string;
+        keterangan: string;
+        warga: { nama: string } | { nama: string }[] | null;
+      }>).map((item) => {
+        const wargaNama = Array.isArray(item.warga)
+          ? (item.warga[0]?.nama ?? null)
+          : (item.warga?.nama ?? null);
+
+        return {
+          id: `iuran-${item.id}`,
+          tanggal: item.tanggal_bayar,
+          tipe: "MASUK",
+          sumber: wargaNama ? `Iuran - ${wargaNama}` : "Iuran",
+          nominal: Number(item.nominal ?? 0),
+          keterangan: item.keterangan || item.bulan || "-",
+        };
+      });
 
       const pengeluaranItems: RiwayatItem[] = (pengeluaranResult.data ?? []).map((item) => ({
         id: `pengeluaran-${item.id}`,
