@@ -66,3 +66,5 @@ button { font: inherit; cursor: pointer; border: 0; }
 .module-section .module-card .module-icon { margin-top:0; }
 .folder-add-card { display:flex; align-items:center; gap:15px; width:min(100%, 620px); min-height:150px; margin:26px auto 0; padding:22px; }
 @media (max-width:760px) { .module-section .module-grid { gap:10px; }.module-section .module-card { min-height:170px; padding:14px; }.folder-add-card { min-height:145px; margin-top:18px; padding:14px; } }
+.folder-caption { position:relative; z-index:1; max-width:1240px; margin:48px auto 0; padding-top:24px; border-top:1px solid var(--line); }.folder-caption h3 { margin:8px 0 6px; font:600 27px 'Playfair Display',serif; }.folder-caption .folder-hint { display:block; }.folder-caption + .toast { z-index:30; }
+@media (max-width:760px) { .folder-caption { margin-top:36px; }.folder-caption h3 { font-size:23px; } }
