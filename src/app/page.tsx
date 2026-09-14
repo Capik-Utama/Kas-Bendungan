@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const [notice, setNotice] = useState("");
   const [summary, setSummary] = useState<Summary>({ totalIuran: 0, totalPengeluaran: 0 });
   const [loadingSummary, setLoadingSummary] = useState(isSupabaseConfigured);
-  const total = useMemo(() => summary.totalIuran - summary.totalPengeluaran, [summary]);
+  const total = useMemo(() => funds.reduce((sum, fund) => sum + fund.amount, 0), [funds]);
 
   useEffect(() => {
     if (!supabase) return;
