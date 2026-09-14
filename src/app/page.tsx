@@ -90,24 +90,16 @@ export default function DashboardPage() {
     <main className="dashboard-shell">
       <div className="grain" aria-hidden="true" />
       <header className="app-header">
-        <button className="village-logo" onClick={() => setDrawerOpen(true)} aria-label="Buka menu Kas Bendungan">
+        <button className="village-logo" onClick={() => setDrawerOpen(true)} aria-label="Buka menu Kas Wangon Mas">
           <img src="/logo-pemuda-desa-wangon-mas.png" alt="Logo Pemuda Desa Wangon Mas" />
         </button>
         <div className="header-title">
-          <span className="eyebrow">RUANG KAS WARGA</span>
-          <h1>Kas Bendungan</h1>
+          <h1>Kas Wangon Mas.<br />Desa Bendungan</h1>
+          <p className="header-copy">Satu ruang sederhana untuk melihat, mengatur, dan menjaga kas warga bersama-sama.</p>
         </div>
-        <button className="refresh-button" onClick={shuffleCards} aria-label="Acak warna kartu">
-          <span>⟳</span><span className="refresh-label">Acak warna</span>
-        </button>
       </header>
 
       <section className="hero-row">
-        <div>
-          <p className="eyebrow">SELAMAT DATANG DI</p>
-          <h2>Kas Kampung<br /><em>Bendungan.</em></h2>
-          <p className="hero-copy">Satu ruang sederhana untuk melihat, mengatur,<br className="desktop-break" /> dan menjaga kas warga bersama-sama.</p>
-        </div>
         <div className="balance-card">
           <div className="balance-top"><span>Total seluruh kas</span><span className="status-dot">● {isSupabaseConfigured ? "Terhubung" : "Demo"}</span></div>
           <strong>{loadingSummary ? "Memuat..." : rupiah(total)}</strong>
