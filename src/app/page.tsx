@@ -1,124 +1,107 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { formatRupiah } from "@/lib/format";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { useMemo, useState } from "react";
 
-type Summary = {
-  totalIuran: number;
-  totalPengeluaran: number;
-  totalSaldo: number;
-};
+const starterFunds = [
+  { id: 1, name: "Kematian", amount: 5000000, note: "Dana sosial warga", icon: "✦" },
+  { id: 2, name: "Pemuda", amount: 15000000, note: "Kegiatan pemuda", icon: "⌁" },
+  { id: 3, name: "Kampung", amount: 2000000, note: "Operasional kampung", icon: "⌂" },
+  { id: 4, name: "Senam", amount: 3000000, note: "Kesehatan warga", icon: "↗" },
+  { id: 5, name: "Umum", amount: 7000000, note: "Keperluan umum", icon: "◌" },
+];
 
-const initialSummary: Summary = {
-  totalIuran: 0,
-  totalPengeluaran: 0,
-  totalSaldo: 0,
-};
+const colors = ["coral", "blue", "mint", "yellow", "lavender", "peach", "sky"];
+const menuItems = [
+  ["⌂", "Dashboard", "Ringkasan kas kampung"],
+  ["▣", "Catatan transaksi", "Pemasukan & pengeluaran"],
+  ["♙", "Data warga", "Daftar warga kampung"],
+  ["◒", "Laporan", "Rekap transparansi kas"],
+  ["⚙", "Pengaturan", "Preferensi aplikasi"],
+];
 
-export default function DashboardPage() {
-  const [summary, setSummary] = useState<Summary>(initialSummary);
-  const [loading, setLoading] = useState(isSupabaseConfigured);
-  const [error, setError] = useState<string | null>(
-    isSupabaseConfigured
-      ? null
-      : "Supabase belum dikonfigurasi. Isi variabel di .env.local terlebih dahulu.",
-  );
-
-  useEffect(() => {
-    const client = supabase;
-    if (!client) {
-      return;
-    }
-
-    const fetchSummary = async () => {
-      setLoading(true);
-      setError(null);
-
-      const [iuranResult, pengeluaranResult] = await Promise.all([
-        client.from("iuran").select("nominal"),
-        client.from("pengeluaran").select("nominal"),
-      ]);
-
-      if (iuranResult.error || pengeluaranResult.error) {
-        setError(
-          iuranResult.error?.message ?? pengeluaranResult.error?.message ?? "Gagal memuat dashboard",
-        );
-        setLoading(false);
-        return;
-      }
-
-      const totalIuran = (iuranResult.data ?? []).reduce(
-        (sum, row) => sum + Number(row.nominal ?? 0),
-        0,
-      );
-      const totalPengeluaran = (pengeluaranResult.data ?? []).reduce(
-        (sum, row) => sum + Number(row.nominal ?? 0),
-        0,
-      );
-
-      setSummary({
-        totalIuran,
-        totalPengeluaran,
-        totalSaldo: totalIuran - totalPengeluaran,
-      });
-      setLoading(false);
-    };
-
-    const timeout = setTimeout(() => {
-      void fetchSummary();
-    }, 0);
-
-    const channel = client
-      .channel("dashboard-kas-summary")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "iuran" },
-        () => void fetchSummary(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "pengeluaran" },
-        () => void fetchSummary(),
-      )
-      .subscribe();
-
-    return () => {
-      clearTimeout(timeout);
-      void client.removeChannel(channel);
-    };
-  }, []);
-
-  return (
-    <section className="space-y-4">
-      <div>
-        <h1 className="text-3xl font-semibold">Dashboard Kas Kampung</h1>
-        <p className="text-sm text-zinc-600">Ringkasan kas secara real-time untuk seluruh warga.</p>
-      </div>
-
-      {!isSupabaseConfigured || error ? (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          {error}
-        </div>
-      ) : null}
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card title="Total Saldo Kas" value={loading ? "Memuat..." : formatRupiah(summary.totalSaldo)} />
-        <Card title="Total Pemasukan Iuran" value={loading ? "Memuat..." : formatRupiah(summary.totalIuran)} />
-        <Card
-          title="Total Pengeluaran"
-          value={loading ? "Memuat..." : formatRupiah(summary.totalPengeluaran)}
-        />
-      </div>
-    </section>
-  );
+function rupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 }
 
-function Card({ title, value }: { title: string; value: string }) {
+export default function DashboardPage() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [funds, setFunds] = useState(starterFunds);
+  const [activeMenu, setActiveMenu] = useState("Dashboard");
+  const [notice, setNotice] = useState("");
+  const total = useMemo(() => funds.reduce((sum, fund) => sum + fund.amount, 0), [funds]);
+
+  function shuffleCards() {
+    setFunds((current) => [...current].sort(() => Math.random() - 0.5));
+    setNotice("Warna kartu diperbarui");
+    window.setTimeout(() => setNotice(""), 1800);
+  }
+
+  function addFund() {
+    const name = window.prompt("Nama kantong kas baru", "Kegiatan Baru");
+    if (!name?.trim()) return;
+    setFunds((current) => [...current, { id: Date.now(), name: name.trim(), amount: 0, note: "Kantong kas baru", icon: "+" }]);
+    setNotice("Kantong kas berhasil ditambahkan");
+    window.setTimeout(() => setNotice(""), 1800);
+  }
+
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <p className="text-sm text-zinc-500">{title}</p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
-    </article>
+    <main className="dashboard-shell">
+      <div className="grain" aria-hidden="true" />
+      <header className="app-header">
+        <button className="village-logo" onClick={() => setDrawerOpen(true)} aria-label="Buka menu Balai Desa">
+          <span className="logo-roof">⌂</span>
+          <span className="logo-text">BALAI<br /><b>DESA</b></span>
+        </button>
+        <div className="header-title">
+          <span className="eyebrow">RUANG KAS WARGA</span>
+          <h1>Kas Bendungan</h1>
+        </div>
+        <button className="refresh-button" onClick={shuffleCards} aria-label="Acak warna kartu">
+          <span>⟳</span><span className="refresh-label">Acak warna</span>
+        </button>
+      </header>
+
+      <section className="hero-row">
+        <div>
+          <p className="eyebrow">SELAMAT DATANG DI</p>
+          <h2>Kas Kampung<br /><em>Bendungan.</em></h2>
+          <p className="hero-copy">Satu ruang sederhana untuk melihat, mengatur,<br className="desktop-break" /> dan menjaga kas warga bersama-sama.</p>
+        </div>
+        <div className="balance-card">
+          <div className="balance-top"><span>Total seluruh kas</span><span className="status-dot">● Aktif</span></div>
+          <strong>{rupiah(total)}</strong>
+          <div className="balance-bottom"><span>Terakhir diperbarui hari ini</span><span>↗</span></div>
+        </div>
+      </section>
+
+      <div className="section-heading">
+        <div><span className="eyebrow">KANTONG KAS</span><h3>Kelola dana kampung</h3></div>
+        <button className="small-action" onClick={shuffleCards}>Ganti suasana <span>↗</span></button>
+      </div>
+
+      <section className="fund-grid" aria-label="Kantong kas kampung">
+        {funds.map((fund, index) => (
+          <button key={fund.id} className={`fund-card ${colors[index % colors.length]}`} onClick={() => { setNotice(`${fund.name}: ${rupiah(fund.amount)}`); window.setTimeout(() => setNotice(""), 2000); }}>
+            <div className="fund-icon">{fund.icon}</div>
+            <div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4><p>{fund.note}</p></div>
+            <div className="fund-amount">{rupiah(fund.amount)}</div>
+            <span className="card-arrow">↗</span>
+          </button>
+        ))}
+        <button className="add-card" onClick={addFund}><span className="plus">+</span><span><b>Tambah kantong kas</b><small>Buat kategori baru</small></span></button>
+      </section>
+
+      <footer className="dashboard-footer"><span>Kas Bendungan <b>•</b> Transparan untuk semua</span><span>2026</span></footer>
+
+      {notice && <div className="toast">{notice}</div>}
+      {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
+      <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-hidden={!drawerOpen}>
+        <div className="drawer-head"><div className="drawer-brand"><span className="mini-house">⌂</span><span>Kas<br /><b>Bendungan</b></span></div><button onClick={() => setDrawerOpen(false)} className="close-drawer" aria-label="Tutup menu">×</button></div>
+        <div className="profile-card"><div className="avatar">BD</div><div><b>Balai Desa</b><span>Pengelola kas warga</span></div><span className="profile-more">•••</span></div>
+        <nav className="drawer-nav">{menuItems.map(([icon, label, detail]) => <button key={label} className={activeMenu === label ? "selected" : ""} onClick={() => { setActiveMenu(label); if (label !== "Dashboard") setNotice(`${label} siap dikembangkan`); if (label !== "Dashboard") window.setTimeout(() => setNotice(""), 1800); }}><span className="nav-icon">{icon}</span><span><b>{label}</b><small>{detail}</small></span>{activeMenu === label && <i>•</i>}</button>)}</nav>
+        <div className="drawer-tip"><span>✦</span><p><b>Ruang bersama</b><br />Catatan kas yang rapi membuat kampung makin berarti.</p></div>
+        <div className="drawer-foot">Versi 1.0 <span>•</span> Bendungan</div>
+      </aside>
+    </main>
   );
 }
