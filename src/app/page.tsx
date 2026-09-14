@@ -11,14 +11,24 @@ const starterFunds = [
 ];
 
 const colors = ["coral", "blue", "mint", "yellow", "lavender", "peach", "sky"];
+const moduleCards = [
+  ["Pemasukan", "Catat iuran dan dana masuk", "↗"],
+  ["Pengeluaran", "Kelola belanja dan biaya", "↘"],
+  ["Anggota", "Daftar warga atau anggota", "♙"],
+  ["Laporan", "Lihat rekap pembukuan", "▤"],
+] as const;
+const addCategories = ["Kelompok", "Pemasukan", "Pengeluaran", "Anggota", "Laporan"] as const;
+
+type Summary = { totalIuran: number; totalPengeluaran: number };
+type OpenCard = { id: number; name: string; note: string; icon: string };
+
 function shuffledColors() {
   return [...colors].sort(() => Math.random() - 0.5);
 }
+
 function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 }
-
-type Summary = { totalIuran: number; totalPengeluaran: number };
 
 export default function DashboardPage() {
   const [funds, setFunds] = useState(starterFunds);
@@ -26,6 +36,8 @@ export default function DashboardPage() {
   const [notice, setNotice] = useState("");
   const [summary, setSummary] = useState<Summary>({ totalIuran: 0, totalPengeluaran: 0 });
   const [loadingSummary, setLoadingSummary] = useState(isSupabaseConfigured);
+  const [activeFund, setActiveFund] = useState<OpenCard | null>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
   const total = useMemo(() => funds.reduce((sum, fund) => sum + fund.amount, 0), [funds]);
 
   useEffect(() => {
@@ -59,27 +71,23 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const refreshHome = () => {
-      setCardColors(shuffledColors());
-      setNotice("Warna kartu diperbarui");
-      window.setTimeout(() => setNotice(""), 1800);
-    };
+    const refreshHome = () => setCardColors(shuffledColors());
     window.addEventListener("home-refresh", refreshHome);
     return () => window.removeEventListener("home-refresh", refreshHome);
   }, []);
 
-  function shuffleCards() {
-    setCardColors(shuffledColors());
-    setNotice("Warna kartu diperbarui");
+  function addFund(category = "Kelompok") {
+    const name = window.prompt(`Nama ${category.toLowerCase()} baru`, `${category} Baru`);
+    if (!name?.trim()) return;
+    setFunds((current) => [...current, { id: Date.now(), name: name.trim(), amount: 0, note: `${category} pembukuan baru`, icon: "+" }]);
+    setShowAddMenu(false);
+    setNotice(`${category} berhasil ditambahkan`);
     window.setTimeout(() => setNotice(""), 1800);
   }
 
-  function addFund() {
-    const name = window.prompt("Nama kategori kas baru", "Kategori Baru");
-    if (!name?.trim()) return;
-    setFunds((current) => [...current, { id: Date.now(), name: name.trim(), amount: 0, note: "Kategori kas baru", icon: "+" }]);
-    setNotice("Kategori kas berhasil ditambahkan");
-    window.setTimeout(() => setNotice(""), 1800);
+  function openFund(fund: OpenCard) {
+    setActiveFund(fund);
+    setShowAddMenu(false);
   }
 
   return (
@@ -93,21 +101,33 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="fund-grid" aria-label="Kantong kas kampung">
+      <section className="fund-grid" aria-label="Kantong kas bertingkat">
         {funds.map((fund, index) => (
-          <button key={fund.id} className={`fund-card ${cardColors[index % cardColors.length]}`} onClick={() => { setNotice(`${fund.name}: ${rupiah(fund.amount)}`); window.setTimeout(() => setNotice(""), 2000); }}>
+          <button key={fund.id} className={`fund-card ${cardColors[index % cardColors.length]}`} onClick={() => openFund(fund)}>
             <div className="fund-icon">{fund.icon}</div>
             <div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4><p>{fund.note}</p></div>
             <div className="fund-amount">{rupiah(fund.amount)}</div>
             <span className="card-arrow">↗</span>
           </button>
         ))}
-        <button className="add-card" onClick={addFund} aria-label="Tambah kategori kas">
+        <button className="add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}>
           <span className="plus">+</span>
-          <span><b>Tambah kategori</b><small>Buat kantong kas baru</small></span>
+          <span><b>Tambah kartu</b><small>Buat tingkat pembukuan baru</small></span>
         </button>
       </section>
 
+      {activeFund && <section className="nested-panel" aria-label={`Isi kartu ${activeFund.name}`}>
+        <div className="nested-heading"><div><span className="fund-label">KARTU TERPILIH</span><h3>{activeFund.name}</h3><p>Pilih modul pembukuan untuk kartu ini.</p></div><button className="panel-close" onClick={() => setActiveFund(null)} aria-label="Tutup kartu">×</button></div>
+        <div className="module-grid">{moduleCards.map(([name, detail, icon]) => <button className="module-card" key={name} onClick={() => setNotice(`${name} untuk ${activeFund.name}`)}><span className="module-icon">{icon}</span><b>{name}</b><small>{detail}</small><span className="module-arrow">↗</span></button>)}</div>
+        <button className="nested-add" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span>＋</span><b>Tambah kartu di dalam {activeFund.name}</b><small>Kelompok, pemasukan, pengeluaran, anggota, atau laporan</small></button>
+      </section>}
+
+      {showAddMenu && <section className="add-menu" aria-label="Kategori kartu baru">
+        <div className="add-menu-heading"><div><span className="fund-label">PEMBUKUAN BERTINGKAT</span><h3>Tambah kartu</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div>
+        <div className="add-options">{addCategories.map((category) => <button key={category} onClick={() => addFund(category)}><span>{category === "Kelompok" ? "▦" : category === "Pemasukan" ? "↗" : category === "Pengeluaran" ? "↘" : category === "Anggota" ? "♙" : "▤"}</span><b>{category}</b><small>Buat kartu {category.toLowerCase()}</small></button>)}</div>
+      </section>}
+
+      <div className="hierarchy-note"><b>Struktur fleksibel</b><span>Desa → RT/RW → kelompok → pembukuan</span></div>
       {notice && <div className="toast">{notice}</div>}
     </main>
   );
