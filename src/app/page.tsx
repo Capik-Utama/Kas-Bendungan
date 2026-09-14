@@ -7,8 +7,7 @@ const starterFunds = [
   { id: 1, name: "Kematian", amount: 5000000, note: "Dana sosial warga", icon: "✦" },
   { id: 2, name: "Pemuda", amount: 15000000, note: "Kegiatan pemuda", icon: "⌁" },
   { id: 3, name: "Kampung", amount: 2000000, note: "Operasional kampung", icon: "⌂" },
-  { id: 4, name: "Senam", amount: 3000000, note: "Kesehatan warga", icon: "↗" },
-  { id: 5, name: "Umum", amount: 7000000, note: "Keperluan umum", icon: "◌" },
+  { id: 4, name: "Umum", amount: 7000000, note: "Keperluan umum", icon: "◌" },
 ];
 
 const colors = ["coral", "blue", "mint", "yellow", "lavender", "peach", "sky"];
@@ -75,14 +74,6 @@ export default function DashboardPage() {
     window.setTimeout(() => setNotice(""), 1800);
   }
 
-  function addFund() {
-    const name = window.prompt("Nama kantong kas baru", "Kegiatan Baru");
-    if (!name?.trim()) return;
-    setFunds((current) => [...current, { id: Date.now(), name: name.trim(), amount: 0, note: "Kantong kas baru", icon: "+" }]);
-    setNotice("Kantong kas berhasil ditambahkan");
-    window.setTimeout(() => setNotice(""), 1800);
-  }
-
   return (
     <main className="dashboard-shell">
       <div className="grain" aria-hidden="true" />
@@ -103,7 +94,6 @@ export default function DashboardPage() {
             <span className="card-arrow">↗</span>
           </button>
         ))}
-        <button className="add-card" onClick={addFund}><span className="plus">+</span><span><b>Tambah kantong kas</b><small>Buat kategori baru</small></span></button>
       </section>
 
       {notice && <div className="toast">{notice}</div>}
