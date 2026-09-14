@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 const starterFunds = [
   { id: 1, name: "Kematian", amount: 5000000, note: "Dana sosial warga", icon: "✦" },
@@ -26,13 +27,47 @@ function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 }
 
+type Summary = { totalIuran: number; totalPengeluaran: number };
+
 export default function DashboardPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [funds, setFunds] = useState(starterFunds);
   const [cardColors, setCardColors] = useState(shuffledColors);
   const [activeMenu, setActiveMenu] = useState("Dashboard");
   const [notice, setNotice] = useState("");
-  const total = useMemo(() => funds.reduce((sum, fund) => sum + fund.amount, 0), [funds]);
+  const [summary, setSummary] = useState<Summary>({ totalIuran: 0, totalPengeluaran: 0 });
+  const [loadingSummary, setLoadingSummary] = useState(isSupabaseConfigured);
+  const total = useMemo(() => summary.totalIuran - summary.totalPengeluaran, [summary]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+    let active = true;
+    const loadSummary = async () => {
+      setLoadingSummary(true);
+      const [iuranResult, pengeluaranResult] = await Promise.all([
+        client.from("iuran").select("nominal"),
+        client.from("pengeluaran").select("nominal"),
+      ]);
+      if (!active) return;
+      if (iuranResult.error || pengeluaranResult.error) {
+        setNotice("Database tersambung, tetapi data belum bisa dibaca");
+      } else {
+        setSummary({
+          totalIuran: (iuranResult.data ?? []).reduce((sum, row) => sum + Number(row.nominal ?? 0), 0),
+          totalPengeluaran: (pengeluaranResult.data ?? []).reduce((sum, row) => sum + Number(row.nominal ?? 0), 0),
+        });
+      }
+      setLoadingSummary(false);
+    };
+    void loadSummary();
+    const channel = client
+      .channel("kas-bendungan-summary")
+      .on("postgres_changes", { event: "*", schema: "public", table: "iuran" }, loadSummary)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pengeluaran" }, loadSummary)
+      .subscribe();
+    return () => { active = false; void client.removeChannel(channel); };
+  }, []);
 
   function shuffleCards() {
     setFunds((current) => [...current].sort(() => Math.random() - 0.5));
@@ -73,8 +108,8 @@ export default function DashboardPage() {
           <p className="hero-copy">Satu ruang sederhana untuk melihat, mengatur,<br className="desktop-break" /> dan menjaga kas warga bersama-sama.</p>
         </div>
         <div className="balance-card">
-          <div className="balance-top"><span>Total seluruh kas</span><span className="status-dot">● Aktif</span></div>
-          <strong>{rupiah(total)}</strong>
+          <div className="balance-top"><span>Total seluruh kas</span><span className="status-dot">● {isSupabaseConfigured ? "Terhubung" : "Demo"}</span></div>
+          <strong>{loadingSummary ? "Memuat..." : rupiah(total)}</strong>
           <div className="balance-bottom"><span>Terakhir diperbarui hari ini</span><span>↗</span></div>
         </div>
       </section>
