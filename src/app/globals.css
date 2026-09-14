@@ -59,3 +59,10 @@ button { font: inherit; cursor: pointer; border: 0; }
 .theme-blue .folder-balance,.theme-blue-white .folder-balance { background:#123b59; color:#f5fbff; box-shadow:16px 17px 0 #bed1df; }
 .theme-pink .folder-balance,.theme-pink-white .folder-balance { background:#64213d; color:#fff7fa; box-shadow:16px 17px 0 #e4becb; }
 @media (max-width:760px) { .folder-toolbar { padding-top:26px; }.folder-heading { padding:48px 0 25px; }.folder-heading h1 { font-size:42px; }.folder-balance { padding:18px 18px 15px; transform:none; }.folder-balance strong { margin:17px 0 19px; font-size:24px; }.folder-divider { margin-top:58px; }.folder-section { margin-top:42px; } }
+
+.folder-section .folder-grid { align-items:stretch; }
+.module-section .module-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
+.module-section .module-card { min-height:210px; padding:24px; border-radius:3px; color:var(--ink); }
+.module-section .module-card .module-icon { margin-top:0; }
+.folder-add-card { display:flex; align-items:center; gap:15px; width:min(100%, 620px); min-height:150px; margin:26px auto 0; padding:22px; }
+@media (max-width:760px) { .module-section .module-grid { gap:10px; }.module-section .module-card { min-height:170px; padding:14px; }.folder-add-card { min-height:145px; margin-top:18px; padding:14px; } }
