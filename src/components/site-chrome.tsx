@@ -9,6 +9,7 @@ const menuItems = [
   ["♙", "Data warga", "Daftar warga kampung", "/warga"],
   ["◒", "Laporan", "Rekap transparansi kas", "/riwayat"],
   ["⚙", "Pengaturan", "Preferensi aplikasi", "#pengaturan"],
+  ["◐", "Tema", "Warna dan tampilan", "#tema"],
 ] as const;
 const themes = [
   ["light", "Terang"], ["dark", "Gelap"], ["blue", "Biru"], ["blue-white", "Biru putih"],
@@ -21,6 +22,7 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [theme, setTheme] = useState("light");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -42,7 +44,13 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
 
   function selectMenu(path: string) {
     if (path === "#pengaturan") {
+      setSettingsOpen((open) => !open);
+      setThemeSettingsOpen(false);
+      return;
+    }
+    if (path === "#tema") {
       setThemeSettingsOpen((open) => !open);
+      setSettingsOpen(false);
       return;
     }
     router.push(path);
@@ -72,7 +80,10 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
       <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-hidden={!drawerOpen}>
         <div className="drawer-head"><div className="drawer-brand"><img className="sidebar-logo" src="/logo-pemuda-desa-wangon-mas.png" alt="Logo Pemuda Desa Wangon Mas" /><span>Kas<br /><b>Wangon Mas</b></span></div><button onClick={() => setDrawerOpen(false)} className="close-drawer" aria-label="Tutup menu">×</button></div>
         <nav className="drawer-nav">{menuItems.map(([icon, label, detail, path]) => <button key={label} className={activeMenu === label ? "selected" : ""} onClick={() => selectMenu(path)}><span className="nav-icon">{icon}</span><span><b>{label}</b><small>{detail}</small></span>{activeMenu === label && <i>•</i>}</button>)}</nav>
-        {themeSettingsOpen && <section className="theme-settings" aria-label="Pengaturan tema">
+        {settingsOpen && <section className="theme-settings app-settings" aria-label="Pengaturan aplikasi">
+          <div className="theme-settings-title"><b>Pengaturan aplikasi</b><small>Preferensi aplikasi akan tersedia di sini.</small></div>
+        </section>}
+        {themeSettingsOpen && <section className="theme-settings" aria-label="Tema tampilan">
           <div className="theme-settings-title"><b>Tema tampilan</b><small>Pilih warna yang nyaman dibaca</small></div>
           <div className="theme-options">{themes.map(([value, label]) => <button key={value} type="button" className={`theme-option ${theme === value ? "selected" : ""}`} onClick={() => setTheme(value)} aria-pressed={theme === value}><span className={`theme-swatch swatch-${value}`} aria-hidden="true" />{label}</button>)}</div>
         </section>}
