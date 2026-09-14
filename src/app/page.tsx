@@ -74,6 +74,14 @@ export default function DashboardPage() {
     window.setTimeout(() => setNotice(""), 1800);
   }
 
+  function addFund() {
+    const name = window.prompt("Nama kategori kas baru", "Kategori Baru");
+    if (!name?.trim()) return;
+    setFunds((current) => [...current, { id: Date.now(), name: name.trim(), amount: 0, note: "Kategori kas baru", icon: "+" }]);
+    setNotice("Kategori kas berhasil ditambahkan");
+    window.setTimeout(() => setNotice(""), 1800);
+  }
+
   return (
     <main className="dashboard-shell">
       <div className="grain" aria-hidden="true" />
@@ -94,6 +102,10 @@ export default function DashboardPage() {
             <span className="card-arrow">↗</span>
           </button>
         ))}
+        <button className="add-card" onClick={addFund} aria-label="Tambah kategori kas">
+          <span className="plus">+</span>
+          <span><b>Tambah kategori</b><small>Buat kantong kas baru</small></span>
+        </button>
       </section>
 
       {notice && <div className="toast">{notice}</div>}
