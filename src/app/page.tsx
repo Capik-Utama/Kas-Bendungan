@@ -94,10 +94,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <div className="section-heading">
-        <div><span className="eyebrow">KANTONG KAS</span><h3>Kelola dana kampung</h3></div>
-      </div>
-
       <section className="fund-grid" aria-label="Kantong kas kampung">
         {funds.map((fund, index) => (
           <button key={fund.id} className={`fund-card ${cardColors[index % cardColors.length]}`} onClick={() => { setNotice(`${fund.name}: ${rupiah(fund.amount)}`); window.setTimeout(() => setNotice(""), 2000); }}>
