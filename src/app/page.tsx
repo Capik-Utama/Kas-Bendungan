@@ -90,9 +90,8 @@ export default function DashboardPage() {
     <main className="dashboard-shell">
       <div className="grain" aria-hidden="true" />
       <header className="app-header">
-        <button className="village-logo" onClick={() => setDrawerOpen(true)} aria-label="Buka menu Balai Desa">
-          <span className="logo-roof">⌂</span>
-          <span className="logo-text">BALAI<br /><b>DESA</b></span>
+        <button className="village-logo" onClick={() => setDrawerOpen(true)} aria-label="Buka menu Kas Bendungan">
+          <img src="/logo-pemuda-desa-wangon-mas.png" alt="Logo Pemuda Desa Wangon Mas" />
         </button>
         <div className="header-title">
           <span className="eyebrow">RUANG KAS WARGA</span>
