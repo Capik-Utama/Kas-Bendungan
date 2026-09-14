@@ -61,7 +61,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const refreshHome = () => {
-      setFunds((current) => [...current].sort(() => Math.random() - 0.5));
       setCardColors(shuffledColors());
       setNotice("Warna kartu diperbarui");
       window.setTimeout(() => setNotice(""), 1800);
@@ -71,7 +70,6 @@ export default function DashboardPage() {
   }, []);
 
   function shuffleCards() {
-    setFunds((current) => [...current].sort(() => Math.random() - 0.5));
     setCardColors(shuffledColors());
     setNotice("Warna kartu diperbarui");
     window.setTimeout(() => setNotice(""), 1800);
