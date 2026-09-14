@@ -18,6 +18,7 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState("");
 
   function goHome() {
+    window.dispatchEvent(new Event("home-refresh"));
     router.push("/");
     setDrawerOpen(false);
   }

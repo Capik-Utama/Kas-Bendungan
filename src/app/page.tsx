@@ -59,6 +59,17 @@ export default function DashboardPage() {
     return () => { active = false; void client.removeChannel(channel); };
   }, []);
 
+  useEffect(() => {
+    const refreshHome = () => {
+      setFunds((current) => [...current].sort(() => Math.random() - 0.5));
+      setCardColors(shuffledColors());
+      setNotice("Warna kartu diperbarui");
+      window.setTimeout(() => setNotice(""), 1800);
+    };
+    window.addEventListener("home-refresh", refreshHome);
+    return () => window.removeEventListener("home-refresh", refreshHome);
+  }, []);
+
   function shuffleCards() {
     setFunds((current) => [...current].sort(() => Math.random() - 0.5));
     setCardColors(shuffledColors());
@@ -87,7 +98,6 @@ export default function DashboardPage() {
 
       <div className="section-heading">
         <div><span className="eyebrow">KANTONG KAS</span><h3>Kelola dana kampung</h3></div>
-        <button className="small-action" onClick={shuffleCards}>Ganti suasana <span>↗</span></button>
       </div>
 
       <section className="fund-grid" aria-label="Kantong kas kampung">
