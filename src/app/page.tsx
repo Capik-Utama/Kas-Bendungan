@@ -82,7 +82,6 @@ export default function DashboardPage() {
     <main className="dashboard-shell">
       <div className="grain" aria-hidden="true" />
       <section className="hero-row"><div className="balance-card"><div className="balance-top"><span>Total seluruh kas</span>{isSupabaseConfigured && <span className="status-dot">● Terhubung</span>}</div><strong>{loadingSummary ? "Memuat..." : rupiah(total)}</strong><div className="balance-bottom"><span>Terakhir diperbarui hari ini</span><span>↗</span></div></div></section>
-      <section className="section-heading"><div><span className="fund-label">RUANG PEMBUKUAN</span><h3>Kartu kas</h3></div><span className="folder-hint">Buka kartu seperti folder untuk melihat isinya</span></section>
       <section className="fund-grid" aria-label="Kantong kas bertingkat">
         {funds.map((fund, index) => <Link key={fund.id} href={`/kartu/${fund.id}`} className={`fund-card ${cardColors[index % cardColors.length]}`}><div className="fund-icon">{fund.icon}</div><div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4><p>{fund.note}</p></div><div className="fund-amount">{rupiah(fund.amount)}</div><span className="card-arrow">Buka ↗</span></Link>)}
         <button className="add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah kartu</b><small>Buat tingkat pembukuan baru</small></span></button>
