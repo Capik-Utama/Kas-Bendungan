@@ -63,7 +63,10 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
         </button>
       </header>
       <div className="site-content">{children}</div>
-      <footer className="dashboard-footer"><span>©2026 Kas Desa - By Capik</span></footer>
+      <footer className="dashboard-footer">
+        <div className="footer-tip"><b>Ruang bersama</b><span>Catatan kas yang rapi membuat desa makin berarti.</span></div>
+        <span className="footer-credit">©2026 Kas Desa - By Capik</span>
+      </footer>
       {notice && <div className="toast">{notice}</div>}
       {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
       <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-hidden={!drawerOpen}>
@@ -73,8 +76,6 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
           <div className="theme-settings-title"><b>Tema tampilan</b><small>Pilih warna yang nyaman dibaca</small></div>
           <div className="theme-options">{themes.map(([value, label]) => <button key={value} type="button" className={`theme-option ${theme === value ? "selected" : ""}`} onClick={() => setTheme(value)} aria-pressed={theme === value}><span className={`theme-swatch swatch-${value}`} aria-hidden="true" />{label}</button>)}</div>
         </section>}
-        <div className="drawer-tip"><span>✦</span><p><b>Ruang bersama</b><br />Catatan kas yang rapi membuat kampung makin berarti.</p></div>
-        <div className="drawer-foot">©2026 Kas Desa - By Capik</div>
       </aside>
     </div>
   );
