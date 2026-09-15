@@ -12,6 +12,9 @@ create table if not exists public.profiles (
   username text not null unique,
   display_name text not null,
   role public.app_role not null default 'anggota',
+  nik_ktp text,
+  nik_kk text,
+  nomor_hp text,
   created_at timestamptz not null default now()
 );
 
