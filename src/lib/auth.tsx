@@ -22,7 +22,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function usernameToEmail(username: string) {
-  return `${username.trim().toLowerCase()}@kas-bendungan.local`;
+  return `${username.trim().toLowerCase()}@kas-bendungan.id`;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
