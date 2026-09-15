@@ -12,6 +12,7 @@ type PengeluaranItem = {
   nominal: number;
   keterangan: string;
 };
+type GroupCard = { id: number; nama: string };
 
 export default function PengeluaranPage() {
   const { canEdit } = useAuth();
@@ -20,6 +21,8 @@ export default function PengeluaranPage() {
   const [keperluan, setKeperluan] = useState("");
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  const [groupCards, setGroupCards] = useState<GroupCard[]>([]);
+  const [kartuId, setKartuId] = useState("");
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
@@ -27,17 +30,18 @@ export default function PengeluaranPage() {
   const loadData = async () => {
     if (!supabase) return;
 
-    const { data, error: loadError } = await supabase
-      .from("pengeluaran")
-      .select("id, tanggal, keperluan, nominal, keterangan")
-      .order("tanggal", { ascending: false });
+    const [{ data, error: loadError }, cardsResult] = await Promise.all([
+      supabase.from("pengeluaran").select("id, tanggal, keperluan, nominal, keterangan").order("tanggal", { ascending: false }),
+      supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
+    ]);
 
-    if (loadError) {
-      setError(loadError.message);
+    if (loadError || cardsResult.error) {
+      setError(loadError?.message ?? cardsResult.error?.message ?? "Gagal memuat data pengeluaran");
       return;
     }
 
     setItems((data as PengeluaranItem[]) ?? []);
+    setGroupCards((cardsResult.data as GroupCard[]) ?? []);
     setError(null);
   };
 
@@ -56,22 +60,28 @@ export default function PengeluaranPage() {
       return;
     }
 
+    if (!kartuId) { setError("Pilih kelompok tujuan transaksi."); return; }
+
     const { error: insertError } = await supabase.from("pengeluaran").insert({
       tanggal,
       keperluan,
       nominal: Number(nominal),
       keterangan,
+      kartu_id: Number(kartuId),
     });
 
     if (insertError) {
       setError(insertError.message);
       return;
     }
+    const { data: existing } = await supabase.from("kartu_kas").select("id").eq("parent_id", Number(kartuId)).eq("kategori", "Pengeluaran").limit(1);
+    if (!existing?.length) await supabase.from("kartu_kas").insert({ parent_id: Number(kartuId), kategori: "Pengeluaran", nama: "Pengeluaran", catatan: "Pengeluaran dari transaksi kas", nominal: 0, ikon: "↘" });
 
     setTanggal("");
     setKeperluan("");
     setNominal("");
     setKeterangan("");
+    setKartuId("");
     await loadData();
   };
 
@@ -80,6 +90,7 @@ export default function PengeluaranPage() {
       <h1 className="text-2xl font-semibold">Pencatatan Pengeluaran Kas</h1>
 
       {canEdit && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 md:grid-cols-4">
+        <select required value={kartuId} onChange={(event) => setKartuId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok tujuan</option>{groupCards.map((card) => <option key={card.id} value={card.id}>{card.nama}</option>)}</select>
         <input
           required
           type="date"

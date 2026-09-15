@@ -20,6 +20,7 @@ type IuranItem = {
     nama: string;
   }[] | null;
 };
+type GroupCard = { id: number; nama: string };
 
 export default function IuranPage() {
   const { canEdit } = useAuth();
@@ -29,6 +30,8 @@ export default function IuranPage() {
   const [bulan, setBulan] = useState("");
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  const [groupCards, setGroupCards] = useState<GroupCard[]>([]);
+  const [kartuId, setKartuId] = useState("");
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
@@ -36,21 +39,23 @@ export default function IuranPage() {
   const loadData = async () => {
     if (!supabase) return;
 
-    const [wargaResult, iuranResult] = await Promise.all([
+    const [wargaResult, iuranResult, cardsResult] = await Promise.all([
       supabase.from("warga").select("id, nama").order("nama", { ascending: true }),
       supabase
         .from("iuran")
         .select("id, bulan, nominal, tanggal_bayar, keterangan, warga:warga_id(nama)")
         .order("tanggal_bayar", { ascending: false }),
+      supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
     ]);
 
-    if (wargaResult.error || iuranResult.error) {
-      setError(wargaResult.error?.message ?? iuranResult.error?.message ?? "Gagal memuat data iuran");
+    if (wargaResult.error || iuranResult.error || cardsResult.error) {
+      setError(wargaResult.error?.message ?? iuranResult.error?.message ?? cardsResult.error?.message ?? "Gagal memuat data iuran");
       return;
     }
 
     setWarga((wargaResult.data as WargaOption[]) ?? []);
     setItems((iuranResult.data as IuranItem[]) ?? []);
+    setGroupCards((cardsResult.data as GroupCard[]) ?? []);
     setError(null);
   };
 
@@ -69,11 +74,14 @@ export default function IuranPage() {
       return;
     }
 
+    if (!kartuId) { setError("Pilih kelompok tujuan transaksi."); return; }
+
     const { error: insertError } = await supabase.from("iuran").insert({
       warga_id: Number(wargaId),
       bulan,
       nominal: Number(nominal),
       keterangan,
+      kartu_id: Number(kartuId),
     });
 
     if (insertError) {
@@ -81,10 +89,14 @@ export default function IuranPage() {
       return;
     }
 
+    const { data: existing } = await supabase.from("kartu_kas").select("id").eq("parent_id", Number(kartuId)).eq("kategori", "Pemasukan").limit(1);
+    if (!existing?.length) await supabase.from("kartu_kas").insert({ parent_id: Number(kartuId), kategori: "Pemasukan", nama: "Pemasukan", catatan: "Pemasukan dari transaksi warga", nominal: 0, ikon: "↗" });
+
     setWargaId("");
     setBulan("");
     setNominal("");
     setKeterangan("");
+    setKartuId("");
     await loadData();
   };
 
@@ -106,6 +118,7 @@ export default function IuranPage() {
             </option>
           ))}
         </select>
+        <select required value={kartuId} onChange={(event) => setKartuId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok tujuan</option>{groupCards.map((card) => <option key={card.id} value={card.id}>{card.nama}</option>)}</select>
         <input
           required
           value={bulan}
