@@ -48,7 +48,7 @@ select public.apply_data_policies('public.kartu_kas');
 drop function public.apply_data_policies(regclass);
 
 create or replace function public.create_account(p_username text, p_display_name text, p_password text, p_role public.app_role)
-returns uuid language plpgsql security definer set search_path = public, auth as $$
+returns uuid language plpgsql security definer set search_path = public, auth, extensions as $$
 declare new_id uuid; normalized text := lower(trim(p_username));
 begin
   if public.current_user_role() <> 'developer' then raise exception 'Hanya developer yang dapat membuat akun'; end if;
