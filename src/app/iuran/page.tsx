@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 type WargaOption = {
   id: number;
   nama: string;
+  warga_kelompok?: { kelompok_id: number }[];
 };
 
 type IuranItem = {
@@ -20,7 +21,8 @@ type IuranItem = {
     nama: string;
   }[] | null;
 };
-type GroupCard = { id: number; nama: string };
+type GroupCard = { id: number; nama: string; kelompokId: number | null };
+type Group = { id: number; nama: string };
 
 export default function IuranPage() {
   const { canEdit } = useAuth();
@@ -36,26 +38,39 @@ export default function IuranPage() {
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
 
+  const selectedWarga = warga.find((item) => item.id === Number(wargaId));
+  const selectedGroupIds = new Set((selectedWarga?.warga_kelompok ?? []).map((membership) => membership.kelompok_id));
+  const availableGroupCards = selectedWarga
+    ? groupCards.filter((card) => card.kelompokId !== null && selectedGroupIds.has(card.kelompokId))
+    : groupCards;
+
   const loadData = async () => {
     if (!supabase) return;
 
-    const [wargaResult, iuranResult, cardsResult] = await Promise.all([
-      supabase.from("warga").select("id, nama").order("nama", { ascending: true }),
+    const [wargaResult, iuranResult, cardsResult, groupsResult] = await Promise.all([
+      supabase.from("warga").select("id, nama, warga_kelompok(kelompok_id)").order("nama", { ascending: true }),
       supabase
         .from("iuran")
         .select("id, bulan, nominal, tanggal_bayar, keterangan, warga:warga_id(nama)")
         .order("tanggal_bayar", { ascending: false }),
       supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
+      supabase.from("kelompok").select("id, nama").order("nama"),
     ]);
 
-    if (wargaResult.error || iuranResult.error || cardsResult.error) {
-      setError(wargaResult.error?.message ?? iuranResult.error?.message ?? cardsResult.error?.message ?? "Gagal memuat data iuran");
+    if (wargaResult.error || iuranResult.error || cardsResult.error || groupsResult.error) {
+      setError(wargaResult.error?.message ?? iuranResult.error?.message ?? cardsResult.error?.message ?? groupsResult.error?.message ?? "Gagal memuat data iuran");
       return;
     }
 
     setWarga((wargaResult.data as WargaOption[]) ?? []);
     setItems((iuranResult.data as IuranItem[]) ?? []);
-    setGroupCards((cardsResult.data as GroupCard[]) ?? []);
+    const groups = (groupsResult.data as Group[]) ?? [];
+    const cards = (cardsResult.data ?? []).map((card) => ({
+      id: Number(card.id),
+      nama: card.nama,
+      kelompokId: groups.find((group) => group.nama === card.nama)?.id ?? null,
+    }));
+    setGroupCards(cards);
     setError(null);
   };
 
@@ -74,7 +89,12 @@ export default function IuranPage() {
       return;
     }
 
+    if (!wargaId) { setError("Pilih anggota terlebih dahulu."); return; }
     if (!kartuId) { setError("Pilih kelompok tujuan transaksi."); return; }
+    if (selectedWarga && !availableGroupCards.some((card) => card.id === Number(kartuId))) {
+      setError("Kelompok tujuan harus sesuai dengan kelompok yang diikuti anggota.");
+      return;
+    }
 
     const { error: insertError } = await supabase.from("iuran").insert({
       warga_id: Number(wargaId),
@@ -108,7 +128,7 @@ export default function IuranPage() {
         <select
           required
           value={wargaId}
-          onChange={(event) => setWargaId(event.target.value)}
+          onChange={(event) => { setWargaId(event.target.value); setKartuId(""); setError(null); }}
           className="rounded-lg border border-zinc-300 px-3 py-2"
         >
           <option value="">Pilih warga</option>
@@ -118,7 +138,7 @@ export default function IuranPage() {
             </option>
           ))}
         </select>
-        <select required value={kartuId} onChange={(event) => setKartuId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok tujuan</option>{groupCards.map((card) => <option key={card.id} value={card.id}>{card.nama}</option>)}</select>
+        <select required value={kartuId} onChange={(event) => setKartuId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">{selectedWarga ? (availableGroupCards.length ? "Pilih kelompok tujuan" : "Anggota belum memiliki kelompok") : "Pilih anggota terlebih dahulu"}</option>{availableGroupCards.map((card) => <option key={card.id} value={card.id}>{card.nama}</option>)}</select>
         <input
           required
           value={bulan}
