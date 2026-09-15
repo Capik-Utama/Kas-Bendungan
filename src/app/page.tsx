@@ -6,7 +6,12 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 
 const colors = ["coral", "blue", "mint", "yellow", "lavender", "peach", "sky"];
-const addCategories = ["Kelompok", "Pemasukan", "Pengeluaran", "Anggota", "Laporan"] as const;
+const functionCards = [
+  { kategori: "Pemasukan", ikon: "↗", catatan: "Daftar pemasukan kelompok" },
+  { kategori: "Pengeluaran", ikon: "↘", catatan: "Daftar pengeluaran kelompok" },
+  { kategori: "Anggota", ikon: "♙", catatan: "Daftar anggota kelompok" },
+  { kategori: "Laporan", ikon: "▤", catatan: "Laporan kelompok" },
+] as const;
 
 type Fund = { id: number; name: string; note: string; icon: string; amount: number; parentId: number | null; category: string; allowMembers?: boolean };
 let nextLocalId = 100000;
@@ -60,13 +65,16 @@ export default function DashboardPage() {
   }, []);
 
   async function addFund(category = "Kelompok") {
+    if (category !== "Kelompok") return;
     const name = window.prompt(`Nama ${category.toLowerCase()} baru`, `${category} Baru`);
     if (!name?.trim()) return;
     const draft: Fund = { id: nextLocalId++, name: name.trim(), amount: 0, note: `${category} pembukuan baru`, icon: "+", parentId: null, category, allowMembers };
     if (supabase) {
-      const { data, error } = await supabase.from("kartu_kas").insert({ parent_id: null, kategori: category, nama: draft.name, catatan: draft.note, nominal: 0, ikon: "+", allow_tambah_anggota: category === "Kelompok" && allowMembers }).select("id").single();
+      const { data, error } = await supabase.from("kartu_kas").insert({ parent_id: null, kategori: category, nama: draft.name, catatan: draft.note, nominal: 0, ikon: "+", allow_tambah_anggota: allowMembers }).select("id").single();
       if (error) { setNotice("Kartu gagal disimpan ke database"); return; }
       draft.id = Number(data.id);
+      const { error: functionError } = await supabase.from("kartu_kas").insert(functionCards.map((card) => ({ parent_id: draft.id, kategori: card.kategori, nama: card.kategori, catatan: card.catatan, nominal: 0, ikon: card.ikon, allow_tambah_anggota: false })));
+      if (functionError) { setNotice("Kelompok tersimpan, tetapi kartu fungsi gagal dibuat"); return; }
     }
     setFunds((current) => [...current, draft]);
     setShowAddMenu(false);
@@ -83,7 +91,7 @@ export default function DashboardPage() {
         {funds.map((fund, index) => <Link key={fund.id} href={`/kartu/${fund.id}`} className={`fund-card ${cardColors[index % cardColors.length]}`}><div className="fund-icon">{fund.icon}</div><div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4><p>{fund.note}</p></div><div className="fund-amount">{rupiah(fund.amount)}</div><span className="card-arrow">Buka ↗</span></Link>)}
         {canEdit && <button className="add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah kartu</b><small>Buat tingkat pembukuan baru</small></span></button>}
       </section>
-      {canEdit && showAddMenu && <section className="add-menu" aria-label="Kategori kartu baru"><div className="add-menu-heading"><div><span className="fund-label">PEMBUKUAN BERTINGKAT</span><h3>Tambah kartu</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div><label className="card-setting"><input type="checkbox" checked={allowMembers} onChange={(event) => setAllowMembers(event.target.checked)} /> Izinkan tambah anggota pada kartu Kelompok</label><div className="add-options">{addCategories.map((category) => <button key={category} onClick={() => addFund(category)}><span>{category === "Kelompok" ? "▦" : category === "Pemasukan" ? "↗" : category === "Pengeluaran" ? "↘" : category === "Anggota" ? "♙" : "▤"}</span><b>{category}</b><small>Buat kartu {category.toLowerCase()}</small></button>)}</div></section>}
+      {canEdit && showAddMenu && <section className="add-menu" aria-label="Tambah kartu kelompok"><div className="add-menu-heading"><div><span className="fund-label">PEMBUKUAN BERTINGKAT</span><h3>Tambah kartu kelompok</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div><label className="card-setting"><input type="checkbox" checked={allowMembers} onChange={(event) => setAllowMembers(event.target.checked)} /> Izinkan penambahan anggota pada kartu ini</label><div className="add-options"><button onClick={() => void addFund("Kelompok")}><span>▦</span><b>Kelompok</b><small>Otomatis membuat kartu Pemasukan, Pengeluaran, Anggota, dan Laporan</small></button></div></section>}
       <div className="hierarchy-note"><b>Struktur fleksibel</b><span>Desa → RT/RW → kelompok → pembukuan</span></div>
       {notice && <div className="toast">{notice}</div>}
     </main>
