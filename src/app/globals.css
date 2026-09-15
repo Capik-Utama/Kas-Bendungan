@@ -101,9 +101,17 @@ button { font: inherit; cursor: pointer; border: 0; }
 }
 
 /* Folder modules follow the tighter rhythm used by the home card grid. */
-.module-section {
+.folder-section:has(.folder-grid:empty) {
+  display: none;
+}
+
+.folder-divider {
   margin-top: 18px;
-  padding-top: 14px;
+}
+
+.module-section {
+  margin-top: 14px;
+  padding-top: 12px;
 }
 
 .module-section .module-grid {
@@ -113,8 +121,8 @@ button { font: inherit; cursor: pointer; border: 0; }
 
 @media (max-width: 760px) {
   .module-section {
-    margin-top: 14px;
-    padding-top: 12px;
+    margin-top: 12px;
+    padding-top: 10px;
   }
 
   .module-section .module-grid {
