@@ -17,6 +17,8 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   canEdit: boolean;
   canManageAccounts: boolean;
+  canCreateAccounts: boolean;
+  canEditAccounts: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -57,7 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     signOut: async () => { if (supabase) await supabase.auth.signOut(); },
     canEdit: profile?.role !== "anggota" && Boolean(profile),
-    canManageAccounts: profile?.role === "developer" || profile?.role === "ketua",
+    canManageAccounts: Boolean(profile),
+    canCreateAccounts: profile?.role === "developer" || profile?.role === "ketua",
+    canEditAccounts: profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara",
   }), [user, profile, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

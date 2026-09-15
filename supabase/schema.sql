@@ -35,11 +35,12 @@ alter table public.pengeluaran enable row level security;
 alter table public.kartu_kas enable row level security;
 
 drop policy if exists "profiles own or developer read" on public.profiles;
-create policy "profiles own or developer read" on public.profiles for select to authenticated using (id = auth.uid() or (public.current_user_role() = 'developer') or (role <> 'developer' and public.current_user_role() in ('ketua','bendahara')));
+drop policy if exists "profiles_own_or_staff_read" on public.profiles;
+create policy "profiles_own_or_staff_read" on public.profiles for select to authenticated using (id = auth.uid() or (public.current_user_role() = 'developer') or (role <> 'developer' and public.current_user_role() in ('ketua','bendahara','anggota')));
 drop policy if exists "staff manage profiles" on public.profiles;
 drop policy if exists "developer manage profiles" on public.profiles;
 drop policy if exists "developer_manage_profiles" on public.profiles;
-create policy "staff manage profiles" on public.profiles for all to authenticated using (public.current_user_role() = 'developer' or (public.current_user_role() = 'ketua' and role <> 'developer')) with check (public.current_user_role() = 'developer' or (public.current_user_role() = 'ketua' and role <> 'developer'));
+create policy "staff manage profiles" on public.profiles for all to authenticated using (public.current_user_role() = 'developer' or (public.current_user_role() = 'ketua' and role <> 'developer') or (public.current_user_role() = 'bendahara' and role = 'anggota')) with check (public.current_user_role() = 'developer' or (public.current_user_role() = 'ketua' and role <> 'developer') or (public.current_user_role() = 'bendahara' and role = 'anggota'));
 
 -- Semua akun terautentikasi dapat melihat data. Hanya developer/ketua/bendahara dapat mengubahnya.
 create or replace function public.apply_data_policies(target regclass) returns void language plpgsql security definer as $$ begin execute format('drop policy if exists "authenticated read" on %s', target); execute format('create policy "authenticated read" on %s for select to authenticated using (true)', target); execute format('drop policy if exists "staff insert" on %s', target); execute format('create policy "staff insert" on %s for insert to authenticated with check (public.is_staff())', target); execute format('drop policy if exists "staff update" on %s', target); execute format('create policy "staff update" on %s for update to authenticated using (public.is_staff()) with check (public.is_staff())', target); execute format('drop policy if exists "staff delete" on %s', target); execute format('create policy "staff delete" on %s for delete to authenticated using (public.is_staff())', target); end $$;

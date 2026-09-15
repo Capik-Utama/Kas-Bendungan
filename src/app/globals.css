@@ -200,3 +200,6 @@ button { font: inherit; cursor: pointer; border: 0; }
 .theme-dark .error-note { color: #ffd1cc; background: #57241f; }
 .theme-dark .read-only-note { color: #ffe7a3; background: #4b3d1d; }
 .theme-dark .theme-settings-title small { color: #dce2e8; }
+
+.read-only-label { color: var(--muted); font-size: 13px; }
+.theme-dark .read-only-label { color: #dce2e8; }
