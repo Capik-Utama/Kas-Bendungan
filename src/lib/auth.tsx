@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     signOut: async () => { if (supabase) await supabase.auth.signOut(); },
     canEdit: profile?.role !== "anggota" && Boolean(profile),
-    canManageAccounts: profile?.role === "developer",
+    canManageAccounts: profile?.role === "developer" || profile?.role === "ketua",
   }), [user, profile, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

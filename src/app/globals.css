@@ -170,3 +170,33 @@ button { font: inherit; cursor: pointer; border: 0; }
 .drawer-nav button { flex:0 0 auto; padding:8px 11px; gap:10px; }
 .drawer-nav small { margin-top:0; }
 .drawer-slogan { position:relative; right:auto; bottom:auto; left:auto; flex:0 0 auto; margin-top:12px; padding-top:12px; }
+
+/* Accessibility contrast pass: every theme keeps text readable on its surface. */
+.user-form, .user-table-wrap, .theme-settings, .profile-card { color: var(--ink); }
+.user-form input, .user-form select { border-color: var(--line); background: color-mix(in srgb, var(--paper) 88%, white); color: var(--ink); }
+.user-form input::placeholder { color: var(--muted); opacity: 1; }
+.user-table { color: var(--ink); background: color-mix(in srgb, var(--paper) 92%, white); }
+.user-table th { color: var(--muted); background: color-mix(in srgb, var(--paper) 78%, var(--ink) 8%); }
+.user-table td { color: var(--ink); }
+.role-pill { color: #173957; font-weight: 700; }
+.role-developer { color: #5b4300; }
+.role-ketua { color: #073a59; background: #b9ddf1; }
+.role-bendahara { color: #14532d; background: #c8ebcf; }
+.role-anggota { color: #343434; background: #e2e2e2; }
+.theme-dark .user-form, .theme-dark .user-table-wrap { background: #252931; color: #f4f6f8; }
+.theme-dark .user-table { background: #252931; color: #f4f6f8; }
+.theme-dark .user-table th { background: #30343b; color: #dce2e8; }
+.theme-dark .user-table td { color: #f4f6f8; }
+.theme-dark .user-form input, .theme-dark .user-form select { background: #17191d; color: #f4f6f8; border-color: #69717c; }
+.theme-dark .user-form label, .theme-dark .management-heading p { color: #dce2e8; }
+.theme-blue-black .user-form input, .theme-blue-black .user-form select, .theme-pink-black .user-form input, .theme-pink-black .user-form select { background: #fff; color: #102536; border-color: #6e8796; }
+.theme-blue-black .user-table th, .theme-pink-black .user-table th { color: #263f50; background: #c2d9e5; }
+.theme-blue-black .user-table td, .theme-pink-black .user-table td { color: #172b38; }
+.theme-blue-black .user-form label, .theme-blue-black .management-heading p, .theme-pink-black .user-form label, .theme-pink-black .management-heading p { color: #263f50; }
+.theme-dark .role-ketua { color: #082f49; background: #a8d7ef; }
+.edit-user { border-color: var(--line); color: var(--ink); }
+.theme-dark .edit-user { color: #f4f6f8; border-color: #69717c; }
+.theme-dark .success-note { color: #c8f2d0; background: #19452a; }
+.theme-dark .error-note { color: #ffd1cc; background: #57241f; }
+.theme-dark .read-only-note { color: #ffe7a3; background: #4b3d1d; }
+.theme-dark .theme-settings-title small { color: #dce2e8; }

@@ -37,7 +37,9 @@ alter table public.kartu_kas enable row level security;
 drop policy if exists "profiles own or developer read" on public.profiles;
 create policy "profiles own or developer read" on public.profiles for select to authenticated using (id = auth.uid() or (public.current_user_role() = 'developer') or (role <> 'developer' and public.current_user_role() in ('ketua','bendahara')));
 drop policy if exists "staff manage profiles" on public.profiles;
-create policy "developer manage profiles" on public.profiles for all to authenticated using (public.current_user_role() = 'developer') with check (public.current_user_role() = 'developer');
+drop policy if exists "developer manage profiles" on public.profiles;
+drop policy if exists "developer_manage_profiles" on public.profiles;
+create policy "staff manage profiles" on public.profiles for all to authenticated using (public.current_user_role() = 'developer' or (public.current_user_role() = 'ketua' and role <> 'developer')) with check (public.current_user_role() = 'developer' or (public.current_user_role() = 'ketua' and role <> 'developer'));
 
 -- Semua akun terautentikasi dapat melihat data. Hanya developer/ketua/bendahara dapat mengubahnya.
 create or replace function public.apply_data_policies(target regclass) returns void language plpgsql security definer as $$ begin execute format('drop policy if exists "authenticated read" on %s', target); execute format('create policy "authenticated read" on %s for select to authenticated using (true)', target); execute format('drop policy if exists "staff insert" on %s', target); execute format('create policy "staff insert" on %s for insert to authenticated with check (public.is_staff())', target); execute format('drop policy if exists "staff update" on %s', target); execute format('create policy "staff update" on %s for update to authenticated using (public.is_staff()) with check (public.is_staff())', target); execute format('drop policy if exists "staff delete" on %s', target); execute format('create policy "staff delete" on %s for delete to authenticated using (public.is_staff())', target); end $$;
@@ -51,7 +53,8 @@ create or replace function public.create_account(p_username text, p_display_name
 returns uuid language plpgsql security definer set search_path = public, auth, extensions as $$
 declare new_id uuid; normalized text := lower(trim(p_username));
 begin
-  if public.current_user_role() <> 'developer' then raise exception 'Hanya developer yang dapat membuat akun'; end if;
+  if public.current_user_role() not in ('developer', 'ketua') then raise exception 'Hanya developer atau ketua yang dapat membuat akun'; end if;
+  if public.current_user_role() = 'ketua' and p_role = 'developer' then raise exception 'Ketua hanya dapat membuat akun bendahara atau anggota'; end if;
   if normalized = '' or length(p_password) < 8 or trim(p_display_name) = '' then raise exception 'Data akun tidak valid'; end if;
   if exists (select 1 from public.profiles where lower(username) = normalized) or exists (select 1 from auth.users where lower(email) = normalized || '@kas-bendungan.id') then raise exception 'Username sudah digunakan'; end if;
   new_id := gen_random_uuid();
