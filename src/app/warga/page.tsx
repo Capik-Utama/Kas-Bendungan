@@ -7,16 +7,48 @@ import { useAuth } from "@/lib/auth";
 
 type Group = { id: number; nama: string };
 type GroupCard = { id: number; nama: string; parent_id: number | null; kategori: string; allow_tambah_anggota: boolean };
-type Warga = { id: number; nama: string; kelompok: string; nik_kk: string | null; nik_ktp: string | null; nomor_telepon: string | null; warga_kelompok?: { kelompok_id: number }[] };
+type Warga = {
+  id: number;
+  nama: string;
+  kelompok: string;
+  nik_kk: string | null;
+  nik_ktp: string | null;
+  nomor_telepon: string | null;
+  warga_kelompok?: { kelompok_id: number }[];
+};
+type Iuran = { warga_id: number | null; nominal: number | string | null };
+
+const money = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
 
 export default function WargaPage() {
   const { canEdit, user } = useAuth();
   const searchParams = useSearchParams();
   const groupFilter = searchParams.get("kelompok");
-  const [items, setItems] = useState<Warga[]>([]); const [groups, setGroups] = useState<Group[]>([]); const [selectedGroups, setSelectedGroups] = useState<number[]>([]); const [editing, setEditing] = useState<Warga | null>(null);
-  const [nama, setNama] = useState(""); const [nikKk, setNikKk] = useState(""); const [nikKtp, setNikKtp] = useState(""); const [nomorTelepon, setNomorTelepon] = useState(""); const [error, setError] = useState<string | null>(supabase ? null : "Supabase belum dikonfigurasi.");
+  const [items, setItems] = useState<Warga[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [totals, setTotals] = useState<Record<number, number>>({});
+  const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
+  const [editing, setEditing] = useState<Warga | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [nama, setNama] = useState("");
+  const [nikKk, setNikKk] = useState("");
+  const [nikKtp, setNikKtp] = useState("");
+  const [nomorTelepon, setNomorTelepon] = useState("");
+  const [error, setError] = useState<string | null>(supabase ? null : "Supabase belum dikonfigurasi.");
 
-  const loadWarga = async () => { if (!supabase) return; const { data, error: loadError } = await supabase.from("warga").select("id, nama, kelompok, nik_kk, nik_ktp, nomor_telepon, warga_kelompok(kelompok_id)").order("nama", { ascending: true }); if (loadError) { setError(loadError.message); return; } setItems((data as Warga[]) ?? []); };
+  const loadWarga = async () => {
+    if (!supabase) return;
+    const [{ data, error: loadError }, { data: iuranData, error: iuranError }] = await Promise.all([
+      supabase.from("warga").select("id, nama, kelompok, nik_kk, nik_ktp, nomor_telepon, warga_kelompok(kelompok_id)").order("nama", { ascending: true }),
+      supabase.from("iuran").select("warga_id, nominal"),
+    ]);
+    if (loadError || iuranError) { setError(loadError?.message || iuranError?.message || "Data anggota belum bisa dibaca."); return; }
+    const nextTotals: Record<number, number> = {};
+    for (const row of (iuranData as Iuran[] ?? [])) if (row.warga_id) nextTotals[row.warga_id] = (nextTotals[row.warga_id] ?? 0) + Number(row.nominal ?? 0);
+    setTotals(nextTotals);
+    setItems((data as Warga[]) ?? []);
+  };
+
   const loadGroups = async () => {
     if (!supabase) return;
     const [{ data: groupData, error: groupError }, { data: cardData, error: cardError }] = await Promise.all([
@@ -34,8 +66,10 @@ export default function WargaPage() {
     if (refreshError) { setError(refreshError.message); return; }
     setGroups((refreshedGroups as Group[]) ?? []);
   };
+
   useEffect(() => { const timeout = setTimeout(() => { void loadWarga(); void loadGroups(); }, 0); return () => clearTimeout(timeout); }, []);
-  const resetForm = () => { setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setSelectedGroups([]); setEditing(null); };
+
+  const resetForm = () => { setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setSelectedGroups([]); setEditing(null); setShowForm(false); };
   const toggleGroup = (id: number) => setSelectedGroups((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const saveGroups = async (wargaId: number) => { if (!supabase) return null; const { error: deleteError } = await supabase.from("warga_kelompok").delete().eq("warga_id", wargaId); if (deleteError) return deleteError; const { error: insertError } = await supabase.from("warga_kelompok").insert(selectedGroups.map((kelompok_id) => ({ warga_id: wargaId, kelompok_id }))); return insertError; };
   const ensureMemberCards = async () => {
@@ -86,9 +120,12 @@ export default function WargaPage() {
     resetForm(); await loadWarga();
   };
 
-  const startEdit = (item: Warga) => { setEditing(item); setNama(item.nama); setNikKk(item.nik_kk || ""); setNikKtp(item.nik_ktp || ""); setNomorTelepon(item.nomor_telepon || ""); setSelectedGroups((item.warga_kelompok || []).map((membership) => membership.kelompok_id)); };
+  const startEdit = (item: Warga) => { setEditing(item); setNama(item.nama); setNikKk(item.nik_kk || ""); setNikKtp(item.nik_ktp || ""); setNomorTelepon(item.nomor_telepon || ""); setSelectedGroups((item.warga_kelompok || []).map((membership) => membership.kelompok_id)); setShowForm(true); };
   const visibleItems = groupFilter ? items.filter((item) => (item.warga_kelompok || []).some((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama === groupFilter)) : items;
-  const groupChecklist = <fieldset className="grid gap-2 sm:grid-cols-2"><legend className="mb-1 text-sm font-medium text-zinc-700">Kelompok <span className="text-xs font-normal text-zinc-500">(pilih satu atau lebih)</span></legend>{groups.map((group) => <label key={group.id} className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2"><input type="checkbox" checked={selectedGroups.includes(group.id)} onChange={() => toggleGroup(group.id)} />{group.nama}</label>)}</fieldset>;
+  const groupChecklist = <fieldset className="grid gap-2 sm:grid-cols-3"><legend className="mb-1 text-sm font-medium text-zinc-700">Kelompok <span className="text-xs font-normal text-zinc-500">(pilih satu atau lebih)</span></legend>{groups.map((group) => <label key={group.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2"><input type="checkbox" checked={selectedGroups.includes(group.id)} onChange={() => toggleGroup(group.id)} /><span className="whitespace-nowrap">{group.nama}</span></label>)}</fieldset>;
 
-  return <section className="space-y-4"><h1 className="text-2xl font-semibold">Data Anggota{groupFilter ? ` - ${groupFilter}` : ""}</h1><p className="text-sm text-zinc-600">{groupFilter ? `Menampilkan anggota yang mengikuti kelompok ${groupFilter} saja.` : "Satu anggota dapat mengikuti beberapa kelompok sekaligus."}</p>{canEdit && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 md:grid-cols-3"><input required value={nama} onChange={(event) => setNama(event.target.value)} placeholder="Nama anggota *" className="rounded-lg border border-zinc-300 px-3 py-2" />{groupChecklist}<input value={nikKk} onChange={(event) => setNikKk(event.target.value)} placeholder="NIK KK (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" /><input value={nikKtp} onChange={(event) => setNikKtp(event.target.value)} placeholder="NIK KTP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" /><input value={nomorTelepon} onChange={(event) => setNomorTelepon(event.target.value)} placeholder="No. HP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" /><div className="flex gap-2"><button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700" type="submit">{editing ? "Simpan Perubahan" : "Simpan Anggota"}</button>{editing && <button className="rounded-lg border border-zinc-300 px-3 py-2" type="button" onClick={resetForm}>Batal</button>}</div></form>} {error ? <p className="text-sm text-red-600">{error}</p> : null}<div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white"><table className="min-w-full text-left text-sm"><thead className="bg-zinc-100 text-zinc-700"><tr><th className="px-4 py-3">Nama Anggota</th><th className="px-4 py-3">Kelompok</th><th className="px-4 py-3">NIK KK</th><th className="px-4 py-3">NIK KTP</th><th className="px-4 py-3">No. HP</th><th className="px-4 py-3">Aksi</th></tr></thead><tbody>{visibleItems.map((item) => <tr key={item.id} className="border-t border-zinc-200"><td className="px-4 py-3">{item.nama}</td><td className="px-4 py-3">{(item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "-"}</td><td className="px-4 py-3">{item.nik_kk || "-"}</td><td className="px-4 py-3">{item.nik_ktp || "-"}</td><td className="px-4 py-3">{item.nomor_telepon || "-"}</td><td className="px-4 py-3"><div className="flex flex-wrap gap-2">{canEdit && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canEdit && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td></tr>)}{visibleItems.length === 0 ? <tr><td colSpan={6} className="px-4 py-6 text-center text-zinc-500">Belum ada data anggota{groupFilter ? ` di ${groupFilter}` : ""}.</td></tr> : null}</tbody></table></div></section>;
+  return <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">Data Anggota{groupFilter ? ` - ${groupFilter}` : ""}</h1><p className="text-sm text-zinc-600">{groupFilter ? `Menampilkan anggota yang mengikuti kelompok ${groupFilter} saja.` : "Satu anggota dapat mengikuti beberapa kelompok sekaligus."}</p></div>{canEdit && <button type="button" onClick={() => { setEditing(null); setShowForm((current) => !current); }} className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-[.98]">{showForm && !editing ? "Tutup Form" : "+ Tambah Anggota"}</button>}</div>
+    {canEdit && showForm && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-3"><input required value={nama} onChange={(event) => setNama(event.target.value)} placeholder="Nama anggota *" className="rounded-lg border border-zinc-300 px-3 py-2" />{groupChecklist}<input value={nomorTelepon} onChange={(event) => setNomorTelepon(event.target.value)} placeholder="No. HP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" /><input value={nikKtp} onChange={(event) => setNikKtp(event.target.value)} placeholder="NIK KTP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" /><input value={nikKk} onChange={(event) => setNikKk(event.target.value)} placeholder="NIK KK (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" /><div className="flex gap-2"><button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700" type="submit">{editing ? "Simpan Perubahan" : "Simpan Anggota"}</button>{editing && <button className="rounded-lg border border-zinc-300 px-3 py-2" type="button" onClick={resetForm}>Batal</button>}</div></form>}
+    {error ? <p className="text-sm text-red-600">{error}</p> : null}
+    <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white shadow-sm"><table className="min-w-[980px] text-left text-sm"><thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700"><tr><th className="whitespace-nowrap px-4 py-3">Nama</th><th className="whitespace-nowrap px-4 py-3">No. HP</th><th className="whitespace-nowrap px-4 py-3">Total Iuran</th><th className="whitespace-nowrap px-4 py-3">Kelompok</th><th className="whitespace-nowrap px-4 py-3">NIK KTP</th><th className="whitespace-nowrap px-4 py-3">NIK KK</th><th className="whitespace-nowrap px-4 py-3">Aksi</th></tr></thead><tbody>{visibleItems.map((item) => <tr key={item.id} className="border-t border-zinc-200 align-top"><td className="whitespace-nowrap px-4 py-3 font-medium">{item.nama}</td><td className="whitespace-nowrap px-4 py-3">{item.nomor_telepon || "-"}</td><td className="whitespace-nowrap px-4 py-3">{money(totals[item.id] ?? 0)}</td><td className="whitespace-nowrap px-4 py-3">{(item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "-"}</td><td className="whitespace-nowrap px-4 py-3">{item.nik_ktp || "-"}</td><td className="whitespace-nowrap px-4 py-3">{item.nik_kk || "-"}</td><td className="whitespace-nowrap px-4 py-3"><div className="flex gap-2">{canEdit && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canEdit && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td></tr>)}{visibleItems.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Belum ada data anggota{groupFilter ? ` di ${groupFilter}` : ""}.</td></tr> : null}</tbody></table></div></section>;
 }
