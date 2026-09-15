@@ -297,7 +297,7 @@ button { font: inherit; cursor: pointer; border: 0; }
   @page { size: A4 landscape; margin: 14mm; }
   body { background: #fff !important; color: #111827 !important; }
   .site-chrome { min-height: 0 !important; background: #fff !important; }
-  .app-header, .dashboard-footer, .drawer, .drawer-backdrop, .report-print-header + * ~ *, button, input, select, .print\:hidden { display: none !important; }
+  .app-header, .dashboard-footer, .drawer, .drawer-backdrop, button, input, select, .print\:hidden { display: none !important; }
   .site-content { padding: 0 !important; }
   .report-print-header { display: block !important; margin-bottom: 18px; }
   .report-print-header h1 { margin: 0 0 6px; font-size: 22px; }

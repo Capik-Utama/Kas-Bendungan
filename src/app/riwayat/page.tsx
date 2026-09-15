@@ -98,12 +98,19 @@ export default function RiwayatPage() {
     setExporting(true);
     try {
       const XLSX = await import("xlsx");
-      const rows = filteredItems.map((item, index) => ({ No: index + 1, "Nama (jika iuran)": item.nama || "-", Tipe: item.tipe, Tanggal: item.tanggal, Nominal: item.nominal, "Sumber/Keperluan": item.sumber, Keterangan: item.keterangan }));
-      rows.push({ No: 0, "Nama (jika iuran)": "", Tipe: "" as "MASUK", Tanggal: "", Nominal: 0, "Sumber/Keperluan": "TOTAL PEMASUKAN", Keterangan: String(totalIncome) });
-      rows.push({ No: 0, "Nama (jika iuran)": "", Tipe: "" as "MASUK", Tanggal: "", Nominal: 0, "Sumber/Keperluan": "TOTAL PENGELUARAN", Keterangan: String(totalExpense) });
-      rows.push({ No: 0, "Nama (jika iuran)": "", Tipe: "" as "MASUK", Tanggal: "", Nominal: 0, "Sumber/Keperluan": "KAS AKHIR", Keterangan: String(finalBalance) });
-      const sheet = XLSX.utils.json_to_sheet(rows);
-      sheet["A1"] = { v: "No", t: "s" };
+      const rows = filteredItems.map((item, index) => [index + 1, item.nama || "-", item.tipe, item.tanggal, item.nominal, item.sumber, item.keterangan]);
+      const sheet = XLSX.utils.aoa_to_sheet([
+        ["LAPORAN KAS DESA BENDUNGAN"],
+        ["Periode", periodLabel],
+        ["Jumlah transaksi", filteredItems.length],
+        ["Total pemasukan", totalIncome],
+        ["Total pengeluaran", totalExpense],
+        ["Kas akhir", finalBalance],
+        [],
+        ["No", "Nama (jika iuran)", "Tipe", "Tanggal", "Nominal", "Sumber/Keperluan", "Keterangan"],
+        ...rows,
+      ]);
+      sheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
       sheet["!cols"] = [{ wch: 6 }, { wch: 24 }, { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 24 }, { wch: 32 }];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, sheet, "Laporan Kas");
