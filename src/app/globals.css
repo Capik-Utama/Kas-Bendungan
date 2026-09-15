@@ -130,3 +130,9 @@ button { font: inherit; cursor: pointer; border: 0; }
     gap: 10px;
   }
 }
+
+.drawer-slogan { position:absolute; right:27px; bottom:30px; left:27px; padding-top:17px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.45; text-align:center; }
+.drawer-slogan b,.drawer-slogan span,.drawer-slogan small { display:block; }
+.drawer-slogan b { color:#e1644f; font:500 11px 'DM Mono',monospace; }
+.drawer-slogan span { margin-top:5px; }
+.drawer-slogan small { margin-top:8px; color:#aaa79f; font:9px 'DM Mono',monospace; }
