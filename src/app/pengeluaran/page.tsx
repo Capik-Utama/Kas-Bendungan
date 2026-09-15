@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { formatRupiah } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 type PengeluaranItem = {
   id: number;
@@ -13,6 +14,7 @@ type PengeluaranItem = {
 };
 
 export default function PengeluaranPage() {
+  const { canEdit } = useAuth();
   const [items, setItems] = useState<PengeluaranItem[]>([]);
   const [tanggal, setTanggal] = useState("");
   const [keperluan, setKeperluan] = useState("");
@@ -77,7 +79,7 @@ export default function PengeluaranPage() {
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold">Pencatatan Pengeluaran Kas</h1>
 
-      <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 md:grid-cols-4">
+      {canEdit && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 md:grid-cols-4">
         <input
           required
           type="date"
@@ -110,7 +112,9 @@ export default function PengeluaranPage() {
         <button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700 md:col-span-4" type="submit">
           Simpan Pengeluaran
         </button>
-      </form>
+      </form>}
+
+      {!canEdit && <p className="read-only-note">Mode lihat saja: akun anggota tidak dapat menambah data.</p>}
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 

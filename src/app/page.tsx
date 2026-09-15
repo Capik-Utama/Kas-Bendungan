@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 const starterFunds = [
   { id: 1, name: "Kematian", amount: 5000000, note: "Dana sosial warga", icon: "✦" },
@@ -21,6 +22,7 @@ function shuffledColors() { return [...colors].sort(() => Math.random() - 0.5); 
 function rupiah(value: number) { return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value); }
 
 export default function DashboardPage() {
+  const { canEdit } = useAuth();
   const [funds, setFunds] = useState<Fund[]>(starterFunds.map((fund) => ({ ...fund, parentId: null, category: "Kelompok" })));
   const [cardColors, setCardColors] = useState(shuffledColors);
   const [notice, setNotice] = useState("");
@@ -84,9 +86,9 @@ export default function DashboardPage() {
       <section className="hero-row"><div className="balance-card"><div className="balance-top"><span>Total seluruh kas</span>{isSupabaseConfigured && <span className="status-dot">● Terhubung</span>}</div><strong>{loadingSummary ? "Memuat..." : rupiah(total)}</strong><div className="balance-bottom"><span>Terakhir diperbarui hari ini</span><span>↗</span></div></div></section>
       <section className="fund-grid" aria-label="Kantong kas bertingkat">
         {funds.map((fund, index) => <Link key={fund.id} href={`/kartu/${fund.id}`} className={`fund-card ${cardColors[index % cardColors.length]}`}><div className="fund-icon">{fund.icon}</div><div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4><p>{fund.note}</p></div><div className="fund-amount">{rupiah(fund.amount)}</div><span className="card-arrow">Buka ↗</span></Link>)}
-        <button className="add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah kartu</b><small>Buat tingkat pembukuan baru</small></span></button>
+        {canEdit && <button className="add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah kartu</b><small>Buat tingkat pembukuan baru</small></span></button>}
       </section>
-      {showAddMenu && <section className="add-menu" aria-label="Kategori kartu baru"><div className="add-menu-heading"><div><span className="fund-label">PEMBUKUAN BERTINGKAT</span><h3>Tambah kartu</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div><div className="add-options">{addCategories.map((category) => <button key={category} onClick={() => addFund(category)}><span>{category === "Kelompok" ? "▦" : category === "Pemasukan" ? "↗" : category === "Pengeluaran" ? "↘" : category === "Anggota" ? "♙" : "▤"}</span><b>{category}</b><small>Buat kartu {category.toLowerCase()}</small></button>)}</div></section>}
+      {canEdit && showAddMenu && <section className="add-menu" aria-label="Kategori kartu baru"><div className="add-menu-heading"><div><span className="fund-label">PEMBUKUAN BERTINGKAT</span><h3>Tambah kartu</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div><div className="add-options">{addCategories.map((category) => <button key={category} onClick={() => addFund(category)}><span>{category === "Kelompok" ? "▦" : category === "Pemasukan" ? "↗" : category === "Pengeluaran" ? "↘" : category === "Anggota" ? "♙" : "▤"}</span><b>{category}</b><small>Buat kartu {category.toLowerCase()}</small></button>)}</div></section>}
       <div className="hierarchy-note"><b>Struktur fleksibel</b><span>Desa → RT/RW → kelompok → pembukuan</span></div>
       {notice && <div className="toast">{notice}</div>}
     </main>

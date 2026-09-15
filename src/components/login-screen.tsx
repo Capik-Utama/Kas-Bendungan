@@ -1,0 +1,22 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+import { useAuth } from "@/lib/auth";
+
+export default function LoginScreen() {
+  const { signIn } = useAuth();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true); setError("");
+    const result = await signIn(username, password);
+    if (result.error) setError("Username atau password salah. Periksa kembali data masuk Anda.");
+    setSubmitting(false);
+  }
+
+  return <main className="login-shell"><div className="login-card"><img src="/logo-pemuda-desa-wangon-mas.png" alt="Logo Desa Bendungan" className="login-logo" /><span className="eyebrow">KAS WANGON MAS</span><h1>Ruang kas warga.</h1><p>Masuk untuk melihat dan mengelola pembukuan Desa Bendungan sesuai peran Anda.</p><form onSubmit={onSubmit} className="login-form"><label>Username<input required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Masukkan username" /></label><label>Password<input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Masukkan password" /></label>{error && <p className="login-error">{error}</p>}<button type="submit" disabled={submitting}>{submitting ? "Memeriksa..." : "Masuk ke aplikasi"}</button></form><small>Akun dan hak akses dikelola oleh developer.</small></div></main>;
+}

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { formatRupiah } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 type WargaOption = {
   id: number;
@@ -21,6 +22,7 @@ type IuranItem = {
 };
 
 export default function IuranPage() {
+  const { canEdit } = useAuth();
   const [warga, setWarga] = useState<WargaOption[]>([]);
   const [items, setItems] = useState<IuranItem[]>([]);
   const [wargaId, setWargaId] = useState("");
@@ -90,7 +92,7 @@ export default function IuranPage() {
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold">Pencatatan Iuran Warga</h1>
 
-      <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 md:grid-cols-4">
+      {canEdit && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 md:grid-cols-4">
         <select
           required
           value={wargaId}
@@ -129,7 +131,9 @@ export default function IuranPage() {
         <button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700 md:col-span-4" type="submit">
           Simpan Pembayaran Iuran
         </button>
-      </form>
+      </form>}
+
+      {!canEdit && <p className="read-only-note">Mode lihat saja: akun anggota tidak dapat menambah data.</p>}
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 

@@ -2,93 +2,20 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import LoginScreen from "@/components/login-screen";
+import { roleLabel, useAuth } from "@/lib/auth";
 
-const menuItems = [
-  ["⌂", "Dashboard", "Ringkasan kas kampung", "/"],
-  ["▣", "Catatan transaksi", "Pemasukan & pengeluaran", "/iuran"],
-  ["♙", "Data warga", "Daftar warga kampung", "/warga"],
-  ["◒", "Laporan", "Rekap transparansi kas", "/riwayat"],
-  ["⚙", "Pengaturan", "Preferensi aplikasi", "#pengaturan"],
-  ["◐", "Tema", "Warna dan tampilan", "#tema"],
-] as const;
-const themes = [
-  ["light", "Terang"], ["dark", "Gelap"], ["blue", "Biru"], ["blue-white", "Biru putih"],
-  ["blue-black", "Biru hitam"], ["pink", "Pink"], ["pink-white", "Pink putih"], ["pink-black", "Pink hitam"],
-] as const;
+const menuItems = [["⌂", "Dashboard", "Ringkasan kas kampung", "/"], ["▣", "Catatan transaksi", "Pemasukan & pengeluaran", "/iuran"], ["♙", "Data warga", "Daftar warga kampung", "/warga"], ["◒", "Laporan", "Rekap transparansi kas", "/riwayat"], ["⚙", "Pengaturan", "Preferensi aplikasi", "#pengaturan"], ["◐", "Tema", "Warna dan tampilan", "#tema"]] as const;
+const themes = [["light", "Terang"], ["dark", "Gelap"], ["blue", "Biru"], ["blue-white", "Biru putih"], ["blue-black", "Biru hitam"], ["pink", "Pink"], ["pink-white", "Pink putih"], ["pink-black", "Pink hitam"]] as const;
 
 export default function SiteChrome({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [theme, setTheme] = useState("light");
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem("kas-bendungan-theme");
-    if (savedTheme && themes.some(([value]) => value === savedTheme)) {
-      // The saved preference is applied after hydration to avoid a server/client mismatch.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTheme(savedTheme);
-    }
-  }, []);
-
+  const router = useRouter(); const pathname = usePathname(); const { user, profile, loading, signOut } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false); const [theme, setTheme] = useState("light"); const [settingsOpen, setSettingsOpen] = useState(false); const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
+  useEffect(() => { const saved = window.localStorage.getItem("kas-bendungan-theme"); if (saved && themes.some(([value]) => value === saved)) setTheme(saved); }, []);
   useEffect(() => { window.localStorage.setItem("kas-bendungan-theme", theme); }, [theme]);
-
-  function goHome() {
-    window.dispatchEvent(new Event("home-refresh"));
-    router.push("/");
-    setDrawerOpen(false);
-  }
-
-  function selectMenu(path: string) {
-    if (path === "#pengaturan") {
-      setSettingsOpen((open) => !open);
-      setThemeSettingsOpen(false);
-      return;
-    }
-    if (path === "#tema") {
-      setThemeSettingsOpen((open) => !open);
-      setSettingsOpen(false);
-      return;
-    }
-    router.push(path);
-    setDrawerOpen(false);
-  }
-
-  const activeMenu = pathname === "/" ? "Dashboard" : pathname === "/iuran" ? "Catatan transaksi" : pathname === "/warga" ? "Data warga" : pathname === "/riwayat" ? "Laporan" : "";
-
-  return (
-    <div className={`site-chrome theme-${theme}`}>
-      <header className="app-header">
-        <button className="village-logo" onClick={() => setDrawerOpen(true)} aria-label="Buka menu Kas Wangon Mas">
-          <img src="/logo-pemuda-desa-wangon-mas.png" alt="Logo Pemuda Desa Wangon Mas" />
-        </button>
-        <button className="header-title header-home-button" onClick={goHome} aria-label="Kembali ke beranda">
-          <h1>Kas Wangon Mas.<br />Desa Bendungan</h1>
-          <p className="header-copy">Satu ruang sederhana untuk melihat, mengatur, dan menjaga kas warga bersama-sama.</p>
-        </button>
-      </header>
-      <div className="site-content">{children}</div>
-      <footer className="dashboard-footer">
-        <div className="footer-tip"><b>Ruang bersama</b><span>Catatan kas yang rapi membuat desa makin berarti.</span></div>
-        <span className="footer-credit">©2026 Kas Desa - By Capik</span>
-      </footer>
-      {notice && <div className="toast">{notice}</div>}
-      {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
-      <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-hidden={!drawerOpen}>
-        <div className="drawer-head"><div className="drawer-brand"><img className="sidebar-logo" src="/logo-pemuda-desa-wangon-mas.png" alt="Logo Pemuda Desa Wangon Mas" /><span>Kas<br /><b>Wangon Mas</b></span></div><button onClick={() => setDrawerOpen(false)} className="close-drawer" aria-label="Tutup menu">×</button></div>
-        <nav className="drawer-nav">{menuItems.map(([icon, label, detail, path]) => <button key={label} className={activeMenu === label ? "selected" : ""} onClick={() => selectMenu(path)}><span className="nav-icon">{icon}</span><span><b>{label}</b><small>{detail}</small></span>{activeMenu === label && <i>•</i>}</button>)}</nav>
-        {settingsOpen && <section className="theme-settings app-settings" aria-label="Pengaturan aplikasi">
-          <div className="theme-settings-title"><b>Pengaturan aplikasi</b><small>Preferensi aplikasi akan tersedia di sini.</small></div>
-        </section>}
-        {themeSettingsOpen && <section className="theme-settings" aria-label="Tema tampilan">
-          <div className="theme-settings-title"><b>Tema tampilan</b><small>Pilih warna yang nyaman dibaca</small></div>
-          <div className="theme-options">{themes.map(([value, label]) => <button key={value} type="button" className={`theme-option ${theme === value ? "selected" : ""}`} onClick={() => setTheme(value)} aria-pressed={theme === value}><span className={`theme-swatch swatch-${value}`} aria-hidden="true" />{label}</button>)}</div>
-        </section>}
-        <div className="drawer-slogan"><b>Ruang bersama</b><span>Catatan kas yang rapi membuat desa makin berarti.</span><small>©2026 Kas Desa - By Capik</small></div>
-      </aside>
-    </div>
-  );
+  if (loading) return <main className="login-shell"><p className="login-loading">Menghubungkan ke Supabase...</p></main>;
+  if (!user || !profile) return <LoginScreen />;
+  function selectMenu(path: string) { if (path === "#pengaturan") { setSettingsOpen((open) => !open); setThemeSettingsOpen(false); return; } if (path === "#tema") { setThemeSettingsOpen((open) => !open); setSettingsOpen(false); return; } router.push(path); setDrawerOpen(false); }
+  const activeMenu = pathname === "/" ? "Dashboard" : pathname === "/iuran" || pathname === "/pengeluaran" ? "Catatan transaksi" : pathname === "/warga" ? "Data warga" : pathname === "/riwayat" ? "Laporan" : "";
+  return <div className={`site-chrome theme-${theme}`}><header className="app-header"><button className="village-logo" onClick={() => setDrawerOpen(true)} aria-label="Buka menu"><img src="/logo-pemuda-desa-wangon-mas.png" alt="Logo Pemuda Desa Wangon Mas" /></button><button className="header-title header-home-button" onClick={() => router.push("/")}><h1>Kas Wangon Mas.<br />Desa Bendungan</h1><p className="header-copy">Satu ruang sederhana untuk melihat, mengatur, dan menjaga kas warga bersama-sama.</p></button></header><div className="site-content">{children}</div><footer className="dashboard-footer"><div className="footer-tip"><b>Ruang bersama</b><span>Catatan kas yang rapi membuat desa makin berarti.</span></div><span className="footer-credit">©2026 Kas Desa - By Capik</span></footer>{drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}<aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-hidden={!drawerOpen}><div className="drawer-head"><div className="drawer-brand"><img className="sidebar-logo" src="/logo-pemuda-desa-wangon-mas.png" alt="Logo" /><span>Kas<br /><b>Wangon Mas</b></span></div><button onClick={() => setDrawerOpen(false)} className="close-drawer" aria-label="Tutup menu">×</button></div><div className="profile-card"><div className="avatar">{profile.display_name.slice(0, 2).toUpperCase()}</div><div><b>{profile.display_name}</b><span>{roleLabel(profile.role)}</span></div></div><nav className="drawer-nav">{menuItems.map(([icon, label, detail, path]) => <button key={label} className={activeMenu === label ? "selected" : ""} onClick={() => selectMenu(path)}><span className="nav-icon">{icon}</span><span><b>{label}</b><small>{detail}</small></span>{activeMenu === label && <i>•</i>}</button>)}</nav>{settingsOpen && <section className="theme-settings app-settings"><div className="theme-settings-title"><b>Pengaturan aplikasi</b><small>Hak akses ditentukan oleh peran akun.</small></div></section>}{themeSettingsOpen && <section className="theme-settings"><div className="theme-settings-title"><b>Tema tampilan</b><small>Pilih warna yang nyaman dibaca</small></div><div className="theme-options">{themes.map(([value, label]) => <button key={value} type="button" className={`theme-option ${theme === value ? "selected" : ""}`} onClick={() => setTheme(value)}>{label}</button>)}</div></section>}<button className="drawer-logout" onClick={() => void signOut()}>Keluar dari akun</button><div className="drawer-slogan"><b>Ruang bersama</b><span>Catatan kas yang rapi membuat desa makin berarti.</span><small>©2026 Kas Desa - By Capik</small></div></aside></div>;
 }
