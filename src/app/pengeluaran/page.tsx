@@ -28,6 +28,7 @@ export default function PengeluaranPage() {
   const [kartuId, setKartuId] = useState(scopedKartuId ? String(scopedKartuId) : "");
   const [sortKey, setSortKey] = useState<"tanggal" | "keperluan" | "nominal" | "keterangan">("tanggal");
   const [sortAsc, setSortAsc] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
@@ -101,9 +102,9 @@ export default function PengeluaranPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-semibold">Pencatatan Pengeluaran Kas</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">Pencatatan Pengeluaran Kas</h1><p className="text-sm text-zinc-600">Kelola seluruh pengeluaran kas berdasarkan kelompok.</p></div>{canEdit && <button type="button" onClick={() => setShowForm((current) => !current)} className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-[.98]">{showForm ? "Tutup Form" : "+ Tambah Pengeluaran"}</button>}</div>
 
-      {canEdit && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 md:grid-cols-4">
+      {canEdit && showForm && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-4">
         <select required value={kartuId} onChange={(event) => setKartuId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok tujuan</option>{groupCards.map((card) => <option key={card.id} value={card.id}>{card.nama}</option>)}</select>
         <input
           required
@@ -143,8 +144,8 @@ export default function PengeluaranPage() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white">
-        <table className="min-w-[680px] text-left text-sm">
+      <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <table className="min-w-[620px] text-left text-sm">
           <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
             <tr>
               {([ ["tanggal", "Tanggal"], ["keperluan", "Keperluan"], ["nominal", "Nominal"], ["keterangan", "Keterangan"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
@@ -153,15 +154,14 @@ export default function PengeluaranPage() {
           <tbody>
             {sortedItems.map((item) => (
               <tr key={item.id} className="border-t border-zinc-200">
-                <td className="px-4 py-3">{item.tanggal}</td>
-                <td className="px-4 py-3">{item.keperluan}</td>
-                <td className="px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
-                <td className="px-4 py-3">{item.keterangan || "-"}</td>
+                <td className="whitespace-nowrap px-4 py-3">{item.tanggal}</td>
+                <td className="whitespace-nowrap px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
+                <td className="px-4 py-3">{item.keterangan || item.keperluan || "-"}</td>
               </tr>
             ))}
             {items.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={3} className="px-4 py-6 text-center text-zinc-500">
                   Belum ada data pengeluaran.
                 </td>
               </tr>
