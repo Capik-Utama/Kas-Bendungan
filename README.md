@@ -5,7 +5,7 @@ Aplikasi web modern untuk pengelolaan kas RT/warga menggunakan Next.js (App Rout
 ## Fitur
 
 - Dashboard ringkasan kas (saldo, total iuran masuk, total pengeluaran) dengan update real-time.
-- Modul Data Warga (nama, alamat/RT, nomor telepon).
+- Modul Data Anggota (nama, alamat/RT, nomor telepon).
 - Modul Pencatatan Iuran (pilih warga, nominal, bulan, keterangan).
 - Modul Pencatatan Pengeluaran (keperluan, tanggal, nominal, keterangan).
 - Halaman Transparansi/Riwayat transaksi masuk dan keluar.
