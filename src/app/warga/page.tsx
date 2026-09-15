@@ -16,7 +16,23 @@ export default function WargaPage() {
   const [nama, setNama] = useState(""); const [nikKk, setNikKk] = useState(""); const [nikKtp, setNikKtp] = useState(""); const [nomorTelepon, setNomorTelepon] = useState(""); const [error, setError] = useState<string | null>(supabase ? null : "Supabase belum dikonfigurasi.");
 
   const loadWarga = async () => { if (!supabase) return; const { data, error: loadError } = await supabase.from("warga").select("id, nama, kelompok, nik_kk, nik_ktp, nomor_telepon, warga_kelompok(kelompok_id)").order("nama", { ascending: true }); if (loadError) { setError(loadError.message); return; } setItems((data as Warga[]) ?? []); };
-  const loadGroups = async () => { if (!supabase) return; const { data, error: loadError } = await supabase.from("kelompok").select("id, nama").order("nama"); if (loadError) { setError(loadError.message); return; } setGroups((data as Group[]) ?? []); };
+  const loadGroups = async () => {
+    if (!supabase) return;
+    const [{ data: groupData, error: groupError }, { data: cardData, error: cardError }] = await Promise.all([
+      supabase.from("kelompok").select("id, nama").order("nama"),
+      supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
+    ]);
+    if (groupError || cardError) { setError(groupError?.message || cardError?.message || "Kelompok belum bisa dibaca."); return; }
+    const existingNames = new Set((groupData as Group[] ?? []).map((group) => group.nama));
+    const missingNames = (cardData ?? []).map((card) => String(card.nama)).filter((name) => !existingNames.has(name));
+    if (missingNames.length) {
+      const { error: syncError } = await supabase.from("kelompok").upsert(missingNames.map((nama) => ({ nama })), { onConflict: "nama" });
+      if (syncError) { setError(syncError.message); return; }
+    }
+    const { data: refreshedGroups, error: refreshError } = await supabase.from("kelompok").select("id, nama").order("nama");
+    if (refreshError) { setError(refreshError.message); return; }
+    setGroups((refreshedGroups as Group[]) ?? []);
+  };
   useEffect(() => { const timeout = setTimeout(() => { void loadWarga(); void loadGroups(); }, 0); return () => clearTimeout(timeout); }, []);
   const resetForm = () => { setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setSelectedGroups([]); setEditing(null); };
   const toggleGroup = (id: number) => setSelectedGroups((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
