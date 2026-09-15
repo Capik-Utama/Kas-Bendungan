@@ -113,6 +113,12 @@ export default function WargaPage() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); if (!supabase) return; setError(null); if (!nama.trim() || !selectedGroups.length) { setError("Nama anggota dan minimal satu kelompok wajib diisi."); return; }
+    if (!editing) {
+      const password = window.prompt("Masukkan password login untuk mengonfirmasi penambahan anggota:");
+      if (!password || !user?.email) { setError("Sesi login tidak tersedia."); return; }
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: user.email, password });
+      if (authError) { setError("Password salah. Anggota tidak ditambahkan."); return; }
+    }
     const kelompokUtama = groups.find((group) => group.id === selectedGroups[0])?.nama || "";
     const payload = { nama: nama.trim(), kelompok: kelompokUtama, nik_kk: nikKk.trim() || null, nik_ktp: nikKtp.trim() || null, nomor_telepon: nomorTelepon.trim() || null };
     let wargaId: number;
