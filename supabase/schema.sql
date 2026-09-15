@@ -15,6 +15,7 @@ create table if not exists public.profiles (
   nik_ktp text,
   nik_kk text,
   nomor_hp text,
+  warga_id bigint,
   created_at timestamptz not null default now()
 );
 
