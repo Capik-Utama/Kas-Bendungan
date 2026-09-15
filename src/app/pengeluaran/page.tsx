@@ -6,6 +6,11 @@ import { formatRupiah } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 
+function formatTanggal(value: string) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T00:00:00`));
+}
+
 type PengeluaranItem = {
   id: number;
   tanggal: string;
@@ -26,7 +31,7 @@ export default function PengeluaranPage() {
   const [keterangan, setKeterangan] = useState("");
   const [groupCards, setGroupCards] = useState<GroupCard[]>([]);
   const [kartuId, setKartuId] = useState(scopedKartuId ? String(scopedKartuId) : "");
-  const [sortKey, setSortKey] = useState<"tanggal" | "keperluan" | "nominal" | "keterangan">("tanggal");
+  const [sortKey, setSortKey] = useState<"tanggal" | "nominal" | "keterangan">("tanggal");
   const [sortAsc, setSortAsc] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(
@@ -148,13 +153,13 @@ export default function PengeluaranPage() {
         <table className="min-w-[620px] text-left text-sm">
           <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
             <tr>
-              {([ ["tanggal", "Tanggal"], ["keperluan", "Keperluan"], ["nominal", "Nominal"], ["keterangan", "Keterangan"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
+              {([ ["tanggal", "Tanggal"], ["nominal", "Nominal"], ["keterangan", "Keterangan"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
             </tr>
           </thead>
           <tbody>
             {sortedItems.map((item) => (
               <tr key={item.id} className="border-t border-zinc-200">
-                <td className="whitespace-nowrap px-4 py-3">{item.tanggal}</td>
+                <td className="whitespace-nowrap px-4 py-3">{formatTanggal(item.tanggal)}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
                 <td className="px-4 py-3">{item.keterangan || item.keperluan || "-"}</td>
               </tr>
