@@ -207,3 +207,8 @@ button { font: inherit; cursor: pointer; border: 0; }
 .user-form-grid input:invalid { border-color: #d0ccc2; }
 @media (max-width: 900px) { .user-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .user-form-grid { grid-template-columns: 1fr; } }
+.group-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-width: 0; padding: 0; border: 0; }
+.group-checklist legend { grid-column: 1 / -1; padding: 0; color: var(--muted); font-size: 14px; font-weight: 600; }
+.group-option { display: flex !important; grid-template-columns: none !important; align-items: center; gap: 9px; min-height: 40px; padding: 8px 10px; border: 1px solid #d0ccc2; border-radius: 5px; background: #fff; color: var(--ink) !important; font-size: 14px; font-weight: 500 !important; }
+.group-option input { width: 16px !important; height: 16px; flex: 0 0 16px; margin: 0; accent-color: #173957; }
+@media (max-width: 560px) { .group-checklist { grid-template-columns: 1fr; } }
