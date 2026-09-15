@@ -244,3 +244,5 @@ button { font: inherit; cursor: pointer; border: 0; }
   .login-card > p { font-size: 17px; }
   .login-card > small { font-size: 13px; }
 }
+.login-logo { width: 220px; height: 220px; }
+@media (max-width: 560px) { .login-logo { width: 230px; height: 230px; margin-bottom: 26px; } }
