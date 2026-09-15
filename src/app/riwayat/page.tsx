@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { formatRupiah } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
 
@@ -11,9 +12,12 @@ type RiwayatItem = {
   sumber: string;
   nominal: number;
   keterangan: string;
+  detail: string;
 };
 
 export default function RiwayatPage() {
+  const searchParams = useSearchParams();
+  const scopedKartuId = Number(searchParams.get("kartu_id") || 0);
   const [items, setItems] = useState<RiwayatItem[]>([]);
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
@@ -29,8 +33,8 @@ export default function RiwayatPage() {
       const [iuranResult, pengeluaranResult] = await Promise.all([
         client
           .from("iuran")
-          .select("id, tanggal_bayar, nominal, bulan, keterangan, warga:warga_id(nama)"),
-        client.from("pengeluaran").select("id, tanggal, nominal, keperluan, keterangan"),
+          .select("id, tanggal_bayar, nominal, bulan, keterangan, kartu_id, warga:warga_id(nama)"),
+        client.from("pengeluaran").select("id, tanggal, nominal, keperluan, keterangan, kartu_id"),
       ]);
 
       if (iuranResult.error || pengeluaranResult.error) {
@@ -38,22 +42,24 @@ export default function RiwayatPage() {
         return;
       }
 
-      const iuranItems: RiwayatItem[] = (iuranResult.data ?? []).map((item) => ({
+      const iuranItems: RiwayatItem[] = (iuranResult.data ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId).map((item) => ({
         id: `iuran-${item.id}`,
         tanggal: item.tanggal_bayar,
         tipe: "MASUK",
         sumber: item.warga?.[0]?.nama ? `Iuran - ${item.warga[0].nama}` : "Iuran",
         nominal: Number(item.nominal ?? 0),
         keterangan: item.keterangan || item.bulan || "-",
+        detail: `Bulan pembayaran: ${item.bulan}; ID transaksi: ${item.id}`,
       }));
 
-      const pengeluaranItems: RiwayatItem[] = (pengeluaranResult.data ?? []).map((item) => ({
+      const pengeluaranItems: RiwayatItem[] = (pengeluaranResult.data ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId).map((item) => ({
         id: `pengeluaran-${item.id}`,
         tanggal: item.tanggal,
         tipe: "KELUAR",
         sumber: item.keperluan,
         nominal: Number(item.nominal ?? 0),
         keterangan: item.keterangan || "-",
+        detail: `Tanggal transaksi: ${item.tanggal}; ID transaksi: ${item.id}`,
       }));
 
       const merged = [...iuranItems, ...pengeluaranItems].sort((a, b) =>
@@ -102,7 +108,7 @@ export default function RiwayatPage() {
               <th className="px-4 py-3">Tipe</th>
               <th className="px-4 py-3">Sumber/Keperluan</th>
               <th className="px-4 py-3">Nominal</th>
-              <th className="px-4 py-3">Keterangan</th>
+              <th className="px-4 py-3">Keterangan detail</th>
             </tr>
           </thead>
           <tbody>
@@ -122,7 +128,7 @@ export default function RiwayatPage() {
                 </td>
                 <td className="px-4 py-3">{item.sumber}</td>
                 <td className="px-4 py-3">{formatRupiah(item.nominal)}</td>
-                <td className="px-4 py-3">{item.keterangan}</td>
+                <td className="px-4 py-3"><div>{item.keterangan}</div><small className="text-zinc-500">{item.detail}</small></td>
               </tr>
             ))}
             {items.length === 0 ? (

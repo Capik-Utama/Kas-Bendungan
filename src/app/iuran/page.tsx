@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { formatRupiah } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -17,6 +18,7 @@ type IuranItem = {
   nominal: number;
   tanggal_bayar: string;
   keterangan: string;
+  kartu_id: number | null;
   warga: {
     nama: string;
   }[] | null;
@@ -26,6 +28,8 @@ type Group = { id: number; nama: string };
 
 export default function IuranPage() {
   const { canEdit } = useAuth();
+  const searchParams = useSearchParams();
+  const scopedKartuId = Number(searchParams.get("kartu_id") || 0);
   const [warga, setWarga] = useState<WargaOption[]>([]);
   const [items, setItems] = useState<IuranItem[]>([]);
   const [wargaId, setWargaId] = useState("");
@@ -33,7 +37,7 @@ export default function IuranPage() {
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [groupCards, setGroupCards] = useState<GroupCard[]>([]);
-  const [kartuId, setKartuId] = useState("");
+  const [kartuId, setKartuId] = useState(scopedKartuId ? String(scopedKartuId) : "");
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
@@ -51,7 +55,7 @@ export default function IuranPage() {
       supabase.from("warga").select("id, nama, warga_kelompok(kelompok_id)").order("nama", { ascending: true }),
       supabase
         .from("iuran")
-        .select("id, bulan, nominal, tanggal_bayar, keterangan, warga:warga_id(nama)")
+        .select("id, bulan, nominal, tanggal_bayar, keterangan, kartu_id, warga:warga_id(nama)")
         .order("tanggal_bayar", { ascending: false }),
       supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
       supabase.from("kelompok").select("id, nama").order("nama"),
@@ -62,15 +66,17 @@ export default function IuranPage() {
       return;
     }
 
-    setWarga((wargaResult.data as WargaOption[]) ?? []);
-    setItems((iuranResult.data as IuranItem[]) ?? []);
+    setItems(((iuranResult.data as IuranItem[]) ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId));
     const groups = (groupsResult.data as Group[]) ?? [];
     const cards = (cardsResult.data ?? []).map((card) => ({
       id: Number(card.id),
       nama: card.nama,
       kelompokId: groups.find((group) => group.nama === card.nama)?.id ?? null,
     }));
-    setGroupCards(cards);
+    const scopedGroupId = cards.find((card) => card.id === scopedKartuId)?.kelompokId;
+    const loadedWarga = (wargaResult.data as WargaOption[]) ?? [];
+    setWarga(scopedGroupId ? loadedWarga.filter((item) => (item.warga_kelompok ?? []).some((membership) => membership.kelompok_id === scopedGroupId)) : loadedWarga);
+    setGroupCards(scopedKartuId ? cards.filter((card) => card.id === scopedKartuId) : cards);
     setError(null);
   };
 

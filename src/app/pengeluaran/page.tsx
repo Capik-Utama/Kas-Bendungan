@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { formatRupiah } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -16,13 +17,15 @@ type GroupCard = { id: number; nama: string };
 
 export default function PengeluaranPage() {
   const { canEdit } = useAuth();
+  const searchParams = useSearchParams();
+  const scopedKartuId = Number(searchParams.get("kartu_id") || 0);
   const [items, setItems] = useState<PengeluaranItem[]>([]);
   const [tanggal, setTanggal] = useState("");
   const [keperluan, setKeperluan] = useState("");
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [groupCards, setGroupCards] = useState<GroupCard[]>([]);
-  const [kartuId, setKartuId] = useState("");
+  const [kartuId, setKartuId] = useState(scopedKartuId ? String(scopedKartuId) : "");
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
@@ -31,7 +34,7 @@ export default function PengeluaranPage() {
     if (!supabase) return;
 
     const [{ data, error: loadError }, cardsResult] = await Promise.all([
-      supabase.from("pengeluaran").select("id, tanggal, keperluan, nominal, keterangan").order("tanggal", { ascending: false }),
+      supabase.from("pengeluaran").select("id, tanggal, keperluan, nominal, keterangan, kartu_id").order("tanggal", { ascending: false }),
       supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
     ]);
 
@@ -40,8 +43,8 @@ export default function PengeluaranPage() {
       return;
     }
 
-    setItems((data as PengeluaranItem[]) ?? []);
-    setGroupCards((cardsResult.data as GroupCard[]) ?? []);
+    setItems(((data as (PengeluaranItem & { kartu_id: number | null })[]) ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId));
+    setGroupCards(scopedKartuId ? ((cardsResult.data as GroupCard[]) ?? []).filter((card) => card.id === scopedKartuId) : (cardsResult.data as GroupCard[]) ?? []);
     setError(null);
   };
 
