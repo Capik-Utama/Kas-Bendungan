@@ -47,9 +47,17 @@ export default function CardFolderPage() {
     if (!supabase || !cardId) { queueMicrotask(() => { setCards([]); setCurrent(null); setLoading(false); }); return; }
     const client = supabase;
     const load = async () => {
-      const { data, error } = await client.from("kartu_kas").select("id,parent_id,kategori,nama,catatan,nominal,ikon,allow_tambah_anggota").order("urutan", { ascending: true });
-      if (error) { setNotice("Kartu belum bisa dibaca dari database"); setLoading(false); return; }
-      const loaded = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: Number(card.nominal ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori, allowMembers: Boolean(card.allow_tambah_anggota) }));
+      const [{ data, error }, iuranResult, pengeluaranResult] = await Promise.all([
+        client.from("kartu_kas").select("id,parent_id,kategori,nama,catatan,nominal,ikon,allow_tambah_anggota").order("urutan", { ascending: true }),
+        client.from("iuran").select("kartu_id,nominal"),
+        client.from("pengeluaran").select("kartu_id,nominal"),
+      ]);
+      if (error || iuranResult.error || pengeluaranResult.error) { setNotice("Kartu atau saldo belum bisa dibaca dari database"); setLoading(false); return; }
+      const income = new Map<number, number>();
+      const expense = new Map<number, number>();
+      for (const row of iuranResult.data ?? []) if (row.kartu_id) income.set(Number(row.kartu_id), (income.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
+      for (const row of pengeluaranResult.data ?? []) if (row.kartu_id) expense.set(Number(row.kartu_id), (expense.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
+      const loaded = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: (income.get(Number(card.id)) ?? 0) - (expense.get(Number(card.id)) ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori, allowMembers: Boolean(card.allow_tambah_anggota) }));
       setCards(loaded);
       setCurrent(loaded.find((card) => card.id === cardId) ?? null);
       setLoading(false);

@@ -32,30 +32,25 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
-    let active = true;
-    const loadSummary = async () => {
+    const loadCards = async () => {
       setLoadingSummary(true);
-      const [iuranResult, pengeluaranResult] = await Promise.all([client.from("iuran").select("nominal"), client.from("pengeluaran").select("nominal")]);
-      if (!active) return;
-      if (iuranResult.error || pengeluaranResult.error) setNotice("Database tersambung, tetapi data belum bisa dibaca");
-      else void iuranResult.data;
+      const [{ data, error }, iuranResult, pengeluaranResult] = await Promise.all([
+        client.from("kartu_kas").select("id,parent_id,kategori,nama,catatan,nominal,ikon").order("urutan", { ascending: true }),
+        client.from("iuran").select("kartu_id,nominal"),
+        client.from("pengeluaran").select("kartu_id,nominal"),
+      ]);
+      if (error || iuranResult.error || pengeluaranResult.error) { setNotice("Database tersambung, tetapi saldo belum bisa dibaca"); setLoadingSummary(false); return; }
+      const income = new Map<number, number>();
+      const expense = new Map<number, number>();
+      for (const row of iuranResult.data ?? []) if (row.kartu_id) income.set(Number(row.kartu_id), (income.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
+      for (const row of pengeluaranResult.data ?? []) if (row.kartu_id) expense.set(Number(row.kartu_id), (expense.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
+      const cards = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: (income.get(Number(card.id)) ?? 0) - (expense.get(Number(card.id)) ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori }));
+      setFunds(cards.filter((card) => card.parentId === null));
       setLoadingSummary(false);
     };
-    void loadSummary();
-    const channel = client.channel("kas-bendungan-summary").on("postgres_changes", { event: "*", schema: "public", table: "iuran" }, loadSummary).on("postgres_changes", { event: "*", schema: "public", table: "pengeluaran" }, loadSummary).subscribe();
-    return () => { active = false; void client.removeChannel(channel); };
-  }, []);
-
-  useEffect(() => {
-    if (!supabase) return;
-    const client = supabase;
-    const loadCards = async () => {
-      const { data, error } = await client.from("kartu_kas").select("id,parent_id,kategori,nama,catatan,nominal,ikon").order("urutan", { ascending: true });
-      if (error) { setNotice("Database tersambung, tetapi kartu belum bisa dibaca"); return; }
-      const cards = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: Number(card.nominal ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori }));
-      setFunds(cards.filter((card) => card.parentId === null));
-    };
     void loadCards();
+    const channel = client.channel("kas-bendungan-summary").on("postgres_changes", { event: "*", schema: "public", table: "iuran" }, loadCards).on("postgres_changes", { event: "*", schema: "public", table: "pengeluaran" }, loadCards).subscribe();
+    return () => { void client.removeChannel(channel); };
   }, []);
 
   useEffect(() => {
