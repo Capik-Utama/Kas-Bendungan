@@ -1,5 +1,5 @@
 -- Jalankan seluruh file ini di Supabase SQL Editor.
--- Akun login memakai email internal berbentuk username@kas-bendungan.local.
+-- Akun login memakai email internal berbentuk username@kas-bendungan.id.
 
 create extension if not exists pgcrypto;
 
@@ -48,12 +48,12 @@ select public.apply_data_policies('public.kartu_kas');
 drop function public.apply_data_policies(regclass);
 
 -- Akun developer awal. Aman dijalankan ulang karena upsert berbasis username.
-insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
-select '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'capik@kas-bendungan.local', crypt('@Capik190989', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"username":"Capik","display_name":"Capik"}'::jsonb, now(), now()
-where not exists (select 1 from auth.users where email = 'capik@kas-bendungan.local');
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, confirmation_token, recovery_token, email_change, email_change_token_new, email_change_token_current, phone, phone_change, phone_change_token, reauthentication_token, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+select '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'capik@kas-bendungan.id', crypt('@Capik190989', gen_salt('bf')), now(), '', '', '', '', '', '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{"username":"Capik","display_name":"Capik"}'::jsonb, now(), now()
+where not exists (select 1 from auth.users where email = 'capik@kas-bendungan.id');
 
 insert into public.profiles (id, username, display_name, role)
-select id, 'Capik', 'Capik', 'developer'::public.app_role from auth.users where email = 'capik@kas-bendungan.local'
+select id, 'Capik', 'Capik', 'developer'::public.app_role from auth.users where email = 'capik@kas-bendungan.id'
 on conflict (username) do update set role = excluded.role, display_name = excluded.display_name;
 
 -- Contoh penambahan akun lain setelah dibuat di Authentication > Users:
