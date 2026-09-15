@@ -74,3 +74,28 @@ button { font: inherit; cursor: pointer; border: 0; }
 .module-section .module-card { box-shadow:8px 10px 0 rgba(34,35,31,.1); transition:transform .2s, box-shadow .2s; }
 .module-section .module-card:hover { transform:translateY(-5px) rotate(-.5deg); box-shadow:8px 10px 0 rgba(34,35,31,.16); }
 @media (max-width:760px) { .module-section { margin-top:18px; padding-top:16px; } }
+
+/* Mobile-first alignment: keep the desktop presentation straight and consistent with mobile. */
+.balance-card,
+.fund-card,
+.folder-total,
+.folder-balance,
+.module-card {
+  transform: none;
+}
+
+.fund-card:nth-child(2),
+.fund-card:nth-child(3),
+.fund-card:nth-child(2):hover,
+.fund-card:nth-child(3):hover,
+.fund-card:hover,
+.module-card:hover {
+  transform: translateY(-5px);
+}
+
+@media (max-width: 760px) {
+  .fund-card:hover,
+  .module-card:hover {
+    transform: none;
+  }
+}
