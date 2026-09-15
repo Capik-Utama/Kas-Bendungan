@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 
@@ -14,8 +14,9 @@ let nextLocalId = 200000;
 function rupiah(value: number) { return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value); }
 
 export default function CardFolderPage() {
-  const { canEdit } = useAuth();
+  const { canEdit, user } = useAuth();
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const cardId = Number(params.id);
   const [cards, setCards] = useState<Card[]>([]);
   const [current, setCurrent] = useState<Card | null>(null);
@@ -56,13 +57,16 @@ export default function CardFolderPage() {
 
   async function deleteCard(card: Card) {
     if (!window.confirm(`Hapus kelompok “${card.name}” beserta seluruh isi di dalamnya?`)) return;
-    if (supabase) {
-      const { error } = await supabase.from("kartu_kas").delete().eq("id", card.id);
-      if (error) { setNotice("Kelompok gagal dihapus"); return; }
-      await supabase.from("kelompok").delete().eq("nama", card.name);
-    }
+    const password = window.prompt("Masukkan password login untuk mengonfirmasi penghapusan:");
+    if (!password) return;
+    if (!supabase || !user?.email) { setNotice("Sesi login tidak tersedia"); return; }
+    const { error: authError } = await supabase.auth.signInWithPassword({ email: user.email, password });
+    if (authError) { setNotice("Password salah. Kelompok tidak dihapus."); return; }
+    const { error } = await supabase.from("kartu_kas").delete().eq("id", card.id);
+    if (error) { setNotice("Kelompok gagal dihapus"); return; }
+    await supabase.from("kelompok").delete().eq("nama", card.name);
     setCards((existing) => existing.filter((item) => item.id !== card.id));
-    if (card.id === current?.id) { window.location.href = "/"; return; }
+    if (card.id === current?.id) { router.push("/"); return; }
     setNotice("Kelompok berhasil dihapus");
     window.setTimeout(() => setNotice(""), 1800);
   }
@@ -70,5 +74,5 @@ export default function CardFolderPage() {
   if (loading) return <main className="folder-shell"><p className="folder-loading">Membuka folder...</p></main>;
   if (!current) return <main className="folder-shell"><Link href="/" className="back-link">← Kembali ke kartu kas</Link><div className="empty-folder"><h1>Folder tidak ditemukan</h1><p>Kartu ini mungkin sudah dipindahkan atau dihapus.</p></div></main>;
 
-  return <main className="folder-shell"><div className="grain" aria-hidden="true" /><div className="folder-toolbar"><Link href="/" className="back-link">← Semua kartu</Link><span className="folder-path">Ruang pembukuan / {current.name}</span></div><header className="folder-heading"><div><span className="fund-label">FOLDER PEMBUKUAN</span><h1>{current.name}</h1><p>{current.note}</p></div>{canEdit && <button type="button" className="delete-card folder-delete" onClick={() => void deleteCard(current)}>Hapus kelompok</button>}</header><div className="folder-balance"><div className="balance-top"><span>Saldo folder</span><span>Terakhir diperbarui hari ini</span></div><strong>{rupiah(current.amount)}</strong><div className="balance-bottom"><span>Kas yang tersedia di folder ini</span><span>↗</span></div></div><div className="folder-divider" /><section className="folder-section"><div className="folder-grid">{children.map((card, index) => <div key={card.id} className={`fund-card ${colors[index % colors.length]}`}><Link href={`/kartu/${card.id}`} className="fund-card-link"><div className="fund-icon">{card.icon}</div><div className="fund-content"><span className="fund-label">{card.category.toUpperCase()}</span><h4>{card.name}</h4><p>{card.note}</p></div><div className="fund-amount">{rupiah(card.amount)}</div><span className="card-arrow">Buka ↗</span></Link>{canEdit && <button type="button" className="delete-card" onClick={() => void deleteCard(card)}>Hapus</button>}</div>)}</div></section>{canEdit && showAddMenu && <section className="add-menu"><div className="add-menu-heading"><div><span className="fund-label">FOLDER BERTINGKAT</span><h3>Tambah isi folder</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div><div className="add-options">{addCategories.map((category) => <button key={category} onClick={() => addChild(category)}><span>{category === "Kelompok" ? "▦" : category === "Pemasukan" ? "↗" : category === "Pengeluaran" ? "↘" : category === "Anggota" ? "♙" : "▤"}</span><b>{category}</b><small>Buat kartu {category.toLowerCase()}</small></button>)}</div></section>}<section className="module-section"><span className="fund-label">MODUL FOLDER INI</span><div className="module-grid">{modules.map(([name, detail, icon, href], index) => <Link className="module-card fund-card" key={name} href={name === "Anggota" && current.category === "Kelompok" ? `${href}?kelompok=${encodeURIComponent(current.name)}` : href}><div className="fund-icon">{icon}</div><div className="fund-content"><span className="fund-label">MODUL {String(index + 1).padStart(2, "0")}</span><h4>{name}</h4><p>{detail}</p></div><span className="card-arrow">Buka ↗</span></Link>)}</div></section>{canEdit && <button className="add-card folder-add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah kartu di sini</b><small>Buat folder bertingkat di dalam {current.name}</small></span></button>}<section className="folder-caption"><span className="fund-label">ISI FOLDER</span><h3>{children.length ? `${children.length} kartu di dalam` : "Belum ada subkartu"}</h3><span className="folder-hint">Klik kartu untuk membuka folder berikutnya</span></section>{notice && <div className="toast">{notice}</div>}</main>;
+  return <main className="folder-shell"><div className="grain" aria-hidden="true" /><div className="folder-toolbar"><Link href="/" className="back-link">← Semua kartu</Link><span className="folder-path">Ruang pembukuan / {current.name}</span></div><header className="folder-heading"><div><span className="fund-label">FOLDER PEMBUKUAN</span><h1>{current.name}</h1><p>{current.note}</p></div>{canEdit && <button type="button" className="delete-card folder-delete" onClick={() => void deleteCard(current)}>Hapus kelompok</button>}</header><div className="folder-balance"><div className="balance-top"><span>Saldo folder</span><span>Terakhir diperbarui hari ini</span></div><strong>{rupiah(current.amount)}</strong><div className="balance-bottom"><span>Kas yang tersedia di folder ini</span><span>↗</span></div></div><div className="folder-divider" /><section className="folder-section"><div className="folder-grid">{children.map((card, index) => <Link key={card.id} href={`/kartu/${card.id}`} className={`fund-card ${colors[index % colors.length]}`}><div className="fund-icon">{card.icon}</div><div className="fund-content"><span className="fund-label">{card.category.toUpperCase()}</span><h4>{card.name}</h4><p>{card.note}</p></div><div className="fund-amount">{rupiah(card.amount)}</div><span className="card-arrow">Buka ↗</span></Link>)}</div></section>{canEdit && showAddMenu && <section className="add-menu"><div className="add-menu-heading"><div><span className="fund-label">FOLDER BERTINGKAT</span><h3>Tambah isi folder</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div><div className="add-options">{addCategories.map((category) => <button key={category} onClick={() => addChild(category)}><span>{category === "Kelompok" ? "▦" : category === "Pemasukan" ? "↗" : category === "Pengeluaran" ? "↘" : category === "Anggota" ? "♙" : "▤"}</span><b>{category}</b><small>Buat kartu {category.toLowerCase()}</small></button>)}</div></section>}<section className="module-section"><span className="fund-label">MODUL FOLDER INI</span><div className="module-grid">{modules.map(([name, detail, icon, href], index) => <Link className="module-card fund-card" key={name} href={name === "Anggota" && current.category === "Kelompok" ? `${href}?kelompok=${encodeURIComponent(current.name)}` : href}><div className="fund-icon">{icon}</div><div className="fund-content"><span className="fund-label">MODUL {String(index + 1).padStart(2, "0")}</span><h4>{name}</h4><p>{detail}</p></div><span className="card-arrow">Buka ↗</span></Link>)}</div></section>{canEdit && <button className="add-card folder-add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah kartu di sini</b><small>Buat folder bertingkat di dalam {current.name}</small></span></button>}<section className="folder-caption"><span className="fund-label">ISI FOLDER</span><h3>{children.length ? `${children.length} kartu di dalam` : "Belum ada subkartu"}</h3><span className="folder-hint">Klik kartu untuk membuka folder berikutnya</span></section>{notice && <div className="toast">{notice}</div>}</main>;
 }

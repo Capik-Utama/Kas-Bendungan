@@ -73,24 +73,12 @@ export default function DashboardPage() {
     window.setTimeout(() => setNotice(""), 1800);
   }
 
-  async function deleteFund(fund: Fund) {
-    if (!window.confirm(`Hapus kelompok “${fund.name}” beserta seluruh isi di dalamnya?`)) return;
-    if (supabase) {
-      const { error } = await supabase.from("kartu_kas").delete().eq("id", fund.id);
-      if (error) { setNotice("Kelompok gagal dihapus"); return; }
-      await supabase.from("kelompok").delete().eq("nama", fund.name);
-    }
-    setFunds((current) => current.filter((item) => item.id !== fund.id));
-    setNotice("Kelompok berhasil dihapus");
-    window.setTimeout(() => setNotice(""), 1800);
-  }
-
   return (
     <main className="dashboard-shell">
       <div className="grain" aria-hidden="true" />
       <section className="hero-row"><div className="balance-card"><div className="balance-top"><span>Total seluruh kas</span>{isSupabaseConfigured && <span className="status-dot">● Terhubung</span>}</div><strong>{loadingSummary ? "Memuat..." : rupiah(total)}</strong><div className="balance-bottom"><span>Terakhir diperbarui hari ini</span><span>↗</span></div></div></section>
       <section className="fund-grid" aria-label="Kantong kas bertingkat">
-        {funds.map((fund, index) => <div key={fund.id} className={`fund-card ${cardColors[index % cardColors.length]}`}><Link href={`/kartu/${fund.id}`} className="fund-card-link"><div className="fund-icon">{fund.icon}</div><div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4><p>{fund.note}</p></div><div className="fund-amount">{rupiah(fund.amount)}</div><span className="card-arrow">Buka ↗</span></Link>{canEdit && <button type="button" className="delete-card" onClick={() => void deleteFund(fund)}>Hapus</button>}</div>)}
+        {funds.map((fund, index) => <Link key={fund.id} href={`/kartu/${fund.id}`} className={`fund-card ${cardColors[index % cardColors.length]}`}><div className="fund-icon">{fund.icon}</div><div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4><p>{fund.note}</p></div><div className="fund-amount">{rupiah(fund.amount)}</div><span className="card-arrow">Buka ↗</span></Link>)}
         {canEdit && <button className="add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah kartu</b><small>Buat tingkat pembukuan baru</small></span></button>}
       </section>
       {canEdit && showAddMenu && <section className="add-menu" aria-label="Kategori kartu baru"><div className="add-menu-heading"><div><span className="fund-label">PEMBUKUAN BERTINGKAT</span><h3>Tambah kartu</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div><div className="add-options">{addCategories.map((category) => <button key={category} onClick={() => addFund(category)}><span>{category === "Kelompok" ? "▦" : category === "Pemasukan" ? "↗" : category === "Pengeluaran" ? "↘" : category === "Anggota" ? "♙" : "▤"}</span><b>{category}</b><small>Buat kartu {category.toLowerCase()}</small></button>)}</div></section>}
