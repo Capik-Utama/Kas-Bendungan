@@ -26,6 +26,8 @@ type IuranItem = {
   kartu_id: number | null;
   warga: {
     nama: string;
+  } | {
+    nama: string;
   }[] | null;
 };
 type GroupCard = { id: number; nama: string; kelompokId: number | null };
@@ -97,8 +99,9 @@ export default function IuranPage() {
   }, []);
 
   const sortedItems = useMemo(() => [...items].sort((a, b) => {
-    const left = sortKey === "warga" ? (a.warga?.[0]?.nama ?? "") : sortKey === "nominal" ? Number(a.nominal ?? 0) : sortKey === "tanggal" ? a.tanggal_bayar : String(a[sortKey] ?? "");
-    const right = sortKey === "warga" ? (b.warga?.[0]?.nama ?? "") : sortKey === "nominal" ? Number(b.nominal ?? 0) : sortKey === "tanggal" ? b.tanggal_bayar : String(b[sortKey] ?? "");
+    const wargaName = (item: IuranItem) => Array.isArray(item.warga) ? (item.warga[0]?.nama ?? "") : (item.warga?.nama ?? "");
+    const left = sortKey === "warga" ? wargaName(a) : sortKey === "nominal" ? Number(a.nominal ?? 0) : sortKey === "tanggal" ? a.tanggal_bayar : String(a[sortKey] ?? "");
+    const right = sortKey === "warga" ? wargaName(b) : sortKey === "nominal" ? Number(b.nominal ?? 0) : sortKey === "tanggal" ? b.tanggal_bayar : String(b[sortKey] ?? "");
     const result = typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "id");
     return sortAsc ? result : -result;
   }), [items, sortKey, sortAsc]);
@@ -203,7 +206,7 @@ export default function IuranPage() {
           <tbody>
             {sortedItems.map((item) => (
               <tr key={item.id} className="border-t border-zinc-200">
-                <td className="whitespace-nowrap px-4 py-3">{item.warga?.[0]?.nama ?? "-"}</td>
+                <td className="whitespace-nowrap px-4 py-3">{Array.isArray(item.warga) ? (item.warga[0]?.nama ?? "-") : (item.warga?.nama ?? "-")}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatTanggal(item.tanggal_bayar)}</td>
                 <td className="px-4 py-3">{item.keterangan || item.bulan || "-"}</td>
