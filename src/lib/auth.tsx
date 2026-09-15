@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut: async () => { if (supabase) await supabase.auth.signOut(); },
     canEdit: profile?.role !== "anggota" && Boolean(profile),
     canManageAccounts: Boolean(profile),
-    canCreateAccounts: profile?.role === "developer" || profile?.role === "ketua",
+    canCreateAccounts: profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara",
     canEditAccounts: profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara",
   }), [user, profile, loading]);
 
