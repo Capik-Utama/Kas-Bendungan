@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { formatRupiah } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
@@ -19,9 +19,20 @@ export default function RiwayatPage() {
   const searchParams = useSearchParams();
   const scopedKartuId = Number(searchParams.get("kartu_id") || 0);
   const [items, setItems] = useState<RiwayatItem[]>([]);
+  const [sortKey, setSortKey] = useState<"tanggal" | "tipe" | "sumber" | "nominal" | "keterangan">("tanggal");
+  const [sortAsc, setSortAsc] = useState(false);
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
+
+  const sortedItems = useMemo(() => [...items].sort((a, b) => {
+    const left = sortKey === "nominal" ? a.nominal : a[sortKey];
+    const right = sortKey === "nominal" ? b.nominal : b[sortKey];
+    const result = typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "id");
+    return sortAsc ? result : -result;
+  }), [items, sortKey, sortAsc]);
+  const toggleSort = (key: typeof sortKey) => { if (sortKey === key) setSortAsc((value) => !value); else { setSortKey(key); setSortAsc(false); } };
+  const sortLabel = (key: typeof sortKey) => sortKey === key ? (sortAsc ? " ↑" : " ↓") : " ↕";
 
   useEffect(() => {
     const client = supabase;
@@ -100,19 +111,15 @@ export default function RiwayatPage() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-zinc-100 text-zinc-700">
+      <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white">
+        <table className="min-w-[820px] text-left text-sm">
+          <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
             <tr>
-              <th className="px-4 py-3">Tanggal</th>
-              <th className="px-4 py-3">Tipe</th>
-              <th className="px-4 py-3">Sumber/Keperluan</th>
-              <th className="px-4 py-3">Nominal</th>
-              <th className="px-4 py-3">Keterangan detail</th>
+              {([ ["tanggal", "Tanggal"], ["tipe", "Tipe"], ["sumber", "Sumber/Keperluan"], ["nominal", "Nominal"], ["keterangan", "Keterangan detail"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {sortedItems.map((item) => (
               <tr key={item.id} className="border-t border-zinc-200">
                 <td className="px-4 py-3">{item.tanggal}</td>
                 <td className="px-4 py-3">

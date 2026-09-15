@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { formatRupiah } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
@@ -38,6 +38,8 @@ export default function IuranPage() {
   const [keterangan, setKeterangan] = useState("");
   const [groupCards, setGroupCards] = useState<GroupCard[]>([]);
   const [kartuId, setKartuId] = useState(scopedKartuId ? String(scopedKartuId) : "");
+  const [sortKey, setSortKey] = useState<"tanggal" | "warga" | "bulan" | "nominal" | "keterangan">("tanggal");
+  const [sortAsc, setSortAsc] = useState(false);
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
@@ -87,6 +89,15 @@ export default function IuranPage() {
 
     return () => clearTimeout(timeout);
   }, []);
+
+  const sortedItems = useMemo(() => [...items].sort((a, b) => {
+    const left = sortKey === "warga" ? (a.warga?.[0]?.nama ?? "") : sortKey === "nominal" ? Number(a.nominal ?? 0) : sortKey === "tanggal" ? a.tanggal_bayar : String(a[sortKey] ?? "");
+    const right = sortKey === "warga" ? (b.warga?.[0]?.nama ?? "") : sortKey === "nominal" ? Number(b.nominal ?? 0) : sortKey === "tanggal" ? b.tanggal_bayar : String(b[sortKey] ?? "");
+    const result = typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "id");
+    return sortAsc ? result : -result;
+  }), [items, sortKey, sortAsc]);
+  const toggleSort = (key: typeof sortKey) => { if (sortKey === key) setSortAsc((value) => !value); else { setSortKey(key); setSortAsc(false); } };
+  const sortLabel = (key: typeof sortKey) => sortKey === key ? (sortAsc ? " ↑" : " ↓") : " ↕";
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -176,19 +187,15 @@ export default function IuranPage() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-zinc-100 text-zinc-700">
+      <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white">
+        <table className="min-w-[760px] text-left text-sm">
+          <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
             <tr>
-              <th className="px-4 py-3">Tanggal</th>
-              <th className="px-4 py-3">Warga</th>
-              <th className="px-4 py-3">Bulan</th>
-              <th className="px-4 py-3">Nominal</th>
-              <th className="px-4 py-3">Keterangan</th>
+              {([ ["tanggal", "Tanggal"], ["warga", "Warga"], ["bulan", "Bulan"], ["nominal", "Nominal"], ["keterangan", "Keterangan"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {sortedItems.map((item) => (
               <tr key={item.id} className="border-t border-zinc-200">
                 <td className="px-4 py-3">{item.tanggal_bayar}</td>
                 <td className="px-4 py-3">{item.warga?.[0]?.nama ?? "-"}</td>
