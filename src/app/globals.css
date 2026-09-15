@@ -222,3 +222,25 @@ button { font: inherit; cursor: pointer; border: 0; }
 .group-tabs button:hover, .group-tabs button.selected { border-color: #173957; background: #173957; color: #fff; }
 .empty-table-note { padding: 26px 16px !important; color: var(--muted); text-align: center; }
 @media (max-width: 620px) { .pinned-accounts .section-heading, .member-directory-head { align-items: flex-start; flex-direction: column; } }
+.login-shell { text-align: center; }
+.login-card { display: flex; flex-direction: column; align-items: center; width: min(500px, 100%); padding: 42px 34px; }
+.login-logo { width: 150px; height: 150px; margin: 0 auto 28px; }
+.login-card .eyebrow { font-size: 14px; }
+.login-card h1 { font-size: 44px; }
+.login-card > p { max-width: 390px; font-size: 18px; line-height: 1.6; }
+.login-form { width: 100%; text-align: left; gap: 18px; }
+.login-form label { font-size: 17px; }
+.login-form input { padding: 15px 16px; font-size: 17px; }
+.login-form button { padding: 16px; font-size: 17px; }
+.login-card > small { font-size: 14px; }
+.login-error { text-align: center; font-size: 16px; }
+.login-loading { font-size: 17px; }
+@media (max-width: 560px) {
+  .login-shell { padding: 16px; }
+  .login-card { padding: 30px 22px; box-shadow: 7px 8px 0 #ded8ca; }
+  .login-logo { width: 170px; height: 170px; margin-bottom: 24px; }
+  .login-card .eyebrow { font-size: 15px; }
+  .login-card h1 { font-size: 36px; }
+  .login-card > p { font-size: 17px; }
+  .login-card > small { font-size: 13px; }
+}
