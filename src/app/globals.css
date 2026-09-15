@@ -99,3 +99,26 @@ button { font: inherit; cursor: pointer; border: 0; }
     transform: none;
   }
 }
+
+/* Folder modules follow the tighter rhythm used by the home card grid. */
+.module-section {
+  margin-top: 18px;
+  padding-top: 14px;
+}
+
+.module-section .module-grid {
+  margin-top: 14px;
+  gap: 16px;
+}
+
+@media (max-width: 760px) {
+  .module-section {
+    margin-top: 14px;
+    padding-top: 12px;
+  }
+
+  .module-section .module-grid {
+    margin-top: 10px;
+    gap: 10px;
+  }
+}
