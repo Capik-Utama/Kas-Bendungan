@@ -11,6 +11,7 @@ const themes = [["light", "Terang"], ["dark", "Gelap"], ["blue", "Biru"], ["blue
 export default function SiteChrome({ children }: { children: ReactNode }) {
   const router = useRouter(); const pathname = usePathname(); const { user, profile, loading, signOut } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false); const [theme, setTheme] = useState("light"); const [settingsOpen, setSettingsOpen] = useState(false); const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { const saved = window.localStorage.getItem("kas-bendungan-theme"); if (saved && themes.some(([value]) => value === saved)) setTheme(saved); }, []);
   useEffect(() => { window.localStorage.setItem("kas-bendungan-theme", theme); }, [theme]);
   if (loading) return <main className="login-shell"><p className="login-loading">Menghubungkan ke Supabase...</p></main>;

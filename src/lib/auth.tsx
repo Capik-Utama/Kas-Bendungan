@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) { setLoading(false); return; }
+    if (!supabase) return;
     const client = supabase;
     let mounted = true;
     const loadProfile = async (currentUser: User | null) => {

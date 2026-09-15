@@ -20,6 +20,7 @@ export default function UserPage() {
 
   async function loadProfiles() { if (!supabase || !canManageAccounts) return; const { data, error: loadError } = await supabase.from("profiles").select("id, username, display_name, role, warga_id, nik_ktp, nik_kk, nomor_hp, profile_kelompok(kelompok_id), warga:warga_id(warga_kelompok(kelompok_id))").order("username"); if (loadError) setError(loadError.message); else setItems((data as Profile[]) ?? []); }
   async function loadGroups() { if (!supabase) return; const { data, error: loadError } = await supabase.from("kelompok").select("id, nama").order("nama"); if (loadError) setError(loadError.message); else setGroups((data as Group[]) ?? []); }
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { void loadProfiles(); void loadGroups(); }, [canManageAccounts]);
   function resetForm() { setUsername(""); setPassword(""); setRole("anggota"); setFields(emptyFields); setSelectedGroups([]); setEditing(null); }
   function updateField(name: keyof OptionalFields, value: string) { setFields((current) => ({ ...current, [name]: value })); }
