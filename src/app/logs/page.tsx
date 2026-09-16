@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 
-type AuditLog = { id: number; category: string; action: string; description: string; entity: string | null; entity_id: string | null; created_at: string };
+type AuditLog = { id: number; actor_id: string | null; category: string; action: string; description: string; entity: string | null; entity_id: string | null; created_at: string };
 
 function formatDate(value: string) { return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" }).format(new Date(value)); }
 function activityLabel(item: AuditLog) {
   if (item.action === "LOGIN" && item.description.toLowerCase().startsWith("login oleh")) return item.description.replace(/^login oleh/i, "Login oleh");
-  if (item.action === "LOGIN_TAMU") return "Login oleh tamu";
-  if (item.action === "LOGOUT") return "Logout";
+  if (item.action === "LOGIN_TAMU") return "Login oleh Tamu";
+  if (item.action === "LOGOUT") return item.description.replace(/^keluar dari aplikasi$/i, "Logout oleh Tamu").replace(/^logout oleh/i, "Logout oleh");
   if (item.action === "GANTI_PASSWORD") return "Ganti password";
   const action = item.action === "INSERT" ? "Tambah" : item.action === "UPDATE" ? "Ubah" : item.action === "DELETE" ? "Hapus" : item.action;
   return `${action} ${item.entity ?? "data"}`;
@@ -28,7 +28,7 @@ export default function LogsPage() {
   useEffect(() => {
     if (!canView || !supabase) return;
     const loadLogs = async () => {
-      const { data, error: loadError } = await supabase.from("audit_logs").select("id, category, action, description, entity, entity_id, created_at").order("created_at", { ascending: false }).limit(1000);
+      const { data, error: loadError } = await supabase.from("audit_logs").select("id, actor_id, category, action, description, entity, entity_id, created_at").order("created_at", { ascending: false }).limit(1000);
       if (loadError) setError(loadError.message);
       else setItems((data as AuditLog[]) ?? []);
     };

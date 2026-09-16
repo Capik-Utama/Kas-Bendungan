@@ -67,10 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     enterGuest: async () => {
       if (!supabase) return { error: "Supabase belum dikonfigurasi." };
       const { error } = await supabase.auth.signInAnonymously();
-      if (!error) await logActivity("Autentikasi", "LOGIN_TAMU", "Masuk sebagai tamu");
+      if (!error) await logActivity("Autentikasi", "LOGIN_TAMU", "Login oleh Tamu");
       return { error: error?.message ?? null };
     },
-    signOut: async () => { if (supabase) { await logActivity("Autentikasi", "LOGOUT", "Keluar dari aplikasi"); await supabase.auth.signOut(); } },
+    signOut: async () => { if (supabase) { await logActivity("Autentikasi", "LOGOUT", `Logout oleh ${isGuest ? "Tamu" : profile?.username ?? "Tamu"}`); await supabase.auth.signOut(); } },
     canEdit: !isGuest && profile?.role !== "anggota" && Boolean(profile),
     canManageAccounts: !isGuest && Boolean(profile),
     canCreateAccounts: !isGuest && (profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara"),
