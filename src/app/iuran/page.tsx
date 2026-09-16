@@ -35,7 +35,7 @@ type GroupCard = { id: number; nama: string; kelompokId: number | null };
 type Group = { id: number; nama: string };
 
 export default function IuranPage() {
-  const { canEdit, isGuest } = useAuth();
+  const { canEdit, isGuest, profile } = useAuth();
   const searchParams = useSearchParams();
   const scopedKartuId = Number(searchParams.get("kartu_id") || 0);
   const [warga, setWarga] = useState<WargaOption[]>([]);
@@ -129,6 +129,7 @@ export default function IuranPage() {
       nominal: Number(nominal),
       keterangan,
       kartu_id: Number(kartuId),
+      petugas_id: profile?.id ?? null,
     });
 
     if (insertError) {

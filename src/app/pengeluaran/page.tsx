@@ -21,7 +21,7 @@ type PengeluaranItem = {
 type GroupCard = { id: number; nama: string };
 
 export default function PengeluaranPage() {
-  const { canEdit } = useAuth();
+  const { canEdit, profile } = useAuth();
   const searchParams = useSearchParams();
   const scopedKartuId = Number(searchParams.get("kartu_id") || 0);
   const [items, setItems] = useState<PengeluaranItem[]>([]);
@@ -88,6 +88,7 @@ export default function PengeluaranPage() {
       nominal: Number(nominal),
       keterangan,
       kartu_id: Number(kartuId),
+      petugas_id: profile?.id ?? null,
     });
 
     if (insertError) {
