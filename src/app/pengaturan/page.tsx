@@ -58,6 +58,7 @@ export default function PengaturanPage() {
   }
 
   function downloadTemplate() {
+    if (isGuest) { showNotice("Mode tamu tidak dapat mengunduh file."); return; }
     const workbook = makeWorkbook({
       Anggota: [{ Nama: "Toha", Kelompok: "Umum", "NIK KK": "", "NIK KTP": "", "Alamat/RT": "", "Nomor Telepon": "" }],
       Petunjuk: [{ Keterangan: "Isi sheet Anggota. Satu baris untuk satu anggota. Pisahkan beberapa kelompok dengan koma." }, { Keterangan: "Nama kolom jangan diubah agar import berjalan lancar." }],
