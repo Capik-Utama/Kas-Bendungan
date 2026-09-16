@@ -52,6 +52,13 @@ alter table public.pengeluaran add column if not exists petugas_id uuid referenc
 alter table public.audit_logs enable row level security;
 drop policy if exists "staff read audit logs" on public.audit_logs;
 create policy "staff read audit logs" on public.audit_logs for select to authenticated using (public.current_user_role() in ('developer','ketua','bendahara') and (public.current_user_role() = 'developer' or not exists (select 1 from public.profiles where id = audit_logs.actor_id and role = 'developer')));
+create or replace function public.is_developer_actor(p_actor_id uuid)
+returns boolean language sql stable security definer set search_path = public
+as $$ select exists (select 1 from public.profiles where id = p_actor_id and role = 'developer'); $$;
+revoke all on function public.is_developer_actor(uuid) from public;
+grant execute on function public.is_developer_actor(uuid) to authenticated;
+drop policy if exists "staff read audit logs" on public.audit_logs;
+create policy "staff read audit logs" on public.audit_logs for select to authenticated using (public.current_user_role() in ('developer','ketua','bendahara') and (public.current_user_role() = 'developer' or not public.is_developer_actor(actor_id)));
 create or replace function public.log_activity(p_category text, p_action text, p_description text, p_entity text default null, p_entity_id text default null) returns void language plpgsql security definer set search_path = public as $$ begin insert into public.audit_logs(actor_id, category, action, description, entity, entity_id) values (auth.uid(), left(trim(p_category), 80), left(trim(p_action), 80), left(trim(p_description), 500), left(nullif(trim(p_entity), ''), 120), left(nullif(trim(p_entity_id), ''), 120)); end; $$;
 revoke all on function public.log_activity(text,text,text,text,text) from public;
 grant execute on function public.log_activity(text,text,text,text,text) to authenticated;
