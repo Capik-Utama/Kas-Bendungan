@@ -62,7 +62,7 @@ export default function WargaPage() {
     if (groupError || cardError) { setError(groupError?.message || cardError?.message || "Kelompok belum bisa dibaca."); return; }
     const existingNames = new Set((groupData as Group[] ?? []).map((group) => group.nama));
     const missingNames = (cardData ?? []).map((card) => String(card.nama)).filter((name) => !existingNames.has(name));
-    if (missingNames.length) {
+    if (missingNames.length && !isGuest) {
       const { error: syncError } = await supabase.from("kelompok").upsert(missingNames.map((nama) => ({ nama })), { onConflict: "nama" });
       if (syncError) { setError(syncError.message); return; }
     }
