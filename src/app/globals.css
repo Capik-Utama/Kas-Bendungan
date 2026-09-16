@@ -308,3 +308,48 @@ button { font: inherit; cursor: pointer; border: 0; }
   .site-content th { background: #f3f4f6 !important; }
   .site-content .rounded-2xl { border-radius: 0 !important; }
 }
+
+/* Compact information density across every page. */
+.site-content { min-height: calc(100vh - 92px); }
+.management-shell { padding-top: 16px !important; }
+.management-heading { margin-bottom: 10px !important; }
+.management-heading h1 { margin-bottom: 4px !important; }
+.pinned-accounts, .member-directory { margin-top: 22px; }
+.settings-page { min-height: calc(100vh - 92px); padding-top: 24px; }
+.settings-grid { gap: 14px; margin-top: 22px; }
+.settings-note { margin-top: 20px; }
+.folder-toolbar { padding-top: 18px; }
+.folder-heading { padding: 30px 0 18px; }
+.folder-divider { margin-top: 34px; }
+.folder-section { margin-top: 30px; }
+.folder-section .section-heading { margin-bottom: 14px; }
+.module-section { margin-top: 18px; padding-top: 14px; }
+.module-section .module-grid { margin-top: 10px; gap: 12px; }
+.folder-caption { margin-top: 24px; padding-top: 14px; }
+.site-content form { gap: 10px !important; }
+.site-content table th, .site-content table td { padding-top: 8px !important; padding-bottom: 8px !important; }
+
+@media (max-width: 760px) {
+  .site-content { min-height: calc(100vh - 78px); }
+  .management-shell { padding-top: 10px !important; }
+  .management-heading { margin-bottom: 7px !important; }
+  .settings-page { min-height: calc(100vh - 78px); padding: 18px 12px 32px; }
+  .settings-grid { gap: 10px; margin-top: 16px; }
+  .settings-card { padding: 14px; }
+  .settings-card h2 { margin: 8px 0 5px; }
+  .settings-card p { margin-bottom: 12px; }
+  .folder-shell { padding: 12px 12px 32px; }
+  .folder-toolbar { padding-top: 8px; }
+  .folder-heading { padding: 20px 0 12px; }
+  .folder-heading h1 { margin: 5px 0 3px; font-size: 38px; }
+  .folder-balance { padding: 14px 14px 12px; }
+  .folder-balance strong { margin: 12px 0 14px; font-size: 24px; }
+  .folder-divider { margin-top: 34px; }
+  .folder-section { margin-top: 24px; }
+  .folder-section .section-heading { margin-bottom: 10px; gap: 6px; }
+  .module-section { margin-top: 12px; padding-top: 10px; }
+  .module-section .module-grid { margin-top: 8px; gap: 8px; }
+  .module-section .module-card { min-height: 110px; padding: 10px; }
+  .folder-caption { margin-top: 18px; padding-top: 10px; }
+  .site-content table th, .site-content table td { padding: 6px 8px !important; }
+}
