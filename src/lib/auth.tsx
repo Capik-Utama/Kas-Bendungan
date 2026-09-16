@@ -28,6 +28,9 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const guestProfile: AppProfile = { id: "guest", username: "Tamu", display_name: "Tamu", role: "anggota", nik_ktp: null, nik_kk: null, nomor_hp: null };
 
 function usernameToEmail(username: string) { return `${username.trim().toLowerCase()}@kas-bendungan.id`; }
+async function logActivity(category: string, action: string, description: string) {
+  if (supabase) await supabase.rpc("log_activity", { p_category: category, p_action: action, p_description: description });
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -58,14 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn: async (username, password) => {
       if (!supabase) return { error: "Supabase belum dikonfigurasi." };
       const { error } = await supabase.auth.signInWithPassword({ email: usernameToEmail(username), password });
+      if (!error) await logActivity("Autentikasi", "LOGIN", `Login oleh ${username.trim()}`);
       return { error: error?.message ?? null };
     },
     enterGuest: async () => {
       if (!supabase) return { error: "Supabase belum dikonfigurasi." };
       const { error } = await supabase.auth.signInAnonymously();
+      if (!error) await logActivity("Autentikasi", "LOGIN_TAMU", "Masuk sebagai tamu");
       return { error: error?.message ?? null };
     },
-    signOut: async () => { if (supabase) await supabase.auth.signOut(); },
+    signOut: async () => { if (supabase) { await logActivity("Autentikasi", "LOGOUT", "Keluar dari aplikasi"); await supabase.auth.signOut(); } },
     canEdit: !isGuest && profile?.role !== "anggota" && Boolean(profile),
     canManageAccounts: !isGuest && Boolean(profile),
     canCreateAccounts: !isGuest && (profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara"),

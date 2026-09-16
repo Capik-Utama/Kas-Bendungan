@@ -35,7 +35,7 @@ export default function UserPage() {
     if (editing) {
       if (!canEditTarget(editing)) { setError("Anda tidak memiliki izin mengedit akun ini."); return; }
       if (password && password.length < 8) { setError("Password baru minimal 8 karakter."); return; }
-      if (password) { const { error: passwordError } = await supabase.rpc("update_account_password", { p_user_id: editing.id, p_password: password }); if (passwordError) { setError(passwordError.message); return; } }
+      if (password) { const { error: passwordError } = await supabase.rpc("update_account_password", { p_user_id: editing.id, p_password: password }); if (passwordError) { setError(passwordError.message); return; } await supabase.rpc("log_activity", { p_category: "Autentikasi", p_action: "GANTI_PASSWORD", p_description: `Password akun ${editing.username} diubah` }); }
       const { error: accountError } = editing.id === profile?.id ? await supabase.rpc("update_own_username", { p_username: username.trim() }) : await supabase.from("profiles").update({ role }).eq("id", editing.id);
       if (accountError) { setError(accountError.message); return; }
       const { error: fieldError } = await supabase.from("profiles").update(optional).eq("id", editing.id); if (fieldError) { setError(fieldError.message); return; }
@@ -54,6 +54,7 @@ export default function UserPage() {
     if (ownPassword.length < 8) { setError("Password baru minimal 8 karakter."); return; }
     const { error: passwordError } = await supabase.rpc("update_own_password", { p_password: ownPassword });
     if (passwordError) { setError(passwordError.message); return; }
+    await supabase.rpc("log_activity", { p_category: "Autentikasi", p_action: "GANTI_PASSWORD", p_description: "Password sendiri diubah" });
     setOwnPassword(""); setNotice("Password akun Anda berhasil diperbarui.");
   }
 
