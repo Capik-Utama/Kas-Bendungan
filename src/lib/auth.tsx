@@ -13,7 +13,9 @@ type AuthContextValue = {
   user: User | null;
   profile: AppProfile | null;
   loading: boolean;
+  isGuest: boolean;
   signIn: (username: string, password: string) => Promise<{ error: string | null }>;
+  enterGuest: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   canEdit: boolean;
   canManageAccounts: boolean;
@@ -23,12 +25,15 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const guestProfile: AppProfile = { id: "guest", username: "Tamu", display_name: "Tamu", role: "anggota", nik_ktp: null, nik_kk: null, nomor_hp: null };
+
 function usernameToEmail(username: string) { return `${username.trim().toLowerCase()}@kas-bendungan.id`; }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -37,9 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const loadProfile = async (currentUser: User | null) => {
       if (!mounted) return;
       setUser(currentUser);
-      if (!currentUser) { setProfile(null); setLoading(false); return; }
+      if (!currentUser) { setProfile(null); setIsGuest(false); setLoading(false); return; }
+      if (currentUser.is_anonymous) { setProfile(guestProfile); setIsGuest(true); setLoading(false); return; }
       const { data } = await client.from("profiles").select("id, username, display_name, role, nik_ktp, nik_kk, nomor_hp").eq("id", currentUser.id).single();
-      if (mounted) { setProfile((data as AppProfile | null) ?? null); setLoading(false); }
+      if (mounted) { setProfile((data as AppProfile | null) ?? null); setIsGuest(false); setLoading(false); }
     };
     void client.auth.getSession().then(({ data }) => loadProfile(data.session?.user ?? null));
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => { void loadProfile(session?.user ?? null); });
@@ -48,17 +54,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(() => ({
     user, profile, loading,
+    isGuest,
     signIn: async (username, password) => {
       if (!supabase) return { error: "Supabase belum dikonfigurasi." };
       const { error } = await supabase.auth.signInWithPassword({ email: usernameToEmail(username), password });
       return { error: error?.message ?? null };
     },
+    enterGuest: async () => {
+      if (!supabase) return { error: "Supabase belum dikonfigurasi." };
+      const { error } = await supabase.auth.signInAnonymously();
+      return { error: error?.message ?? null };
+    },
     signOut: async () => { if (supabase) await supabase.auth.signOut(); },
-    canEdit: profile?.role !== "anggota" && Boolean(profile),
-    canManageAccounts: Boolean(profile),
-    canCreateAccounts: profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara",
-    canEditAccounts: profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara",
-  }), [user, profile, loading]);
+    canEdit: !isGuest && profile?.role !== "anggota" && Boolean(profile),
+    canManageAccounts: !isGuest && Boolean(profile),
+    canCreateAccounts: !isGuest && (profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara"),
+    canEditAccounts: !isGuest && (profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara"),
+  }), [user, profile, loading, isGuest]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

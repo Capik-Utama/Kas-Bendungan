@@ -20,7 +20,7 @@ function makeWorkbook(sheets: Record<string, SheetRow[]>) {
 }
 
 export default function PengaturanPage() {
-  const { canEdit } = useAuth();
+  const { canEdit, isGuest } = useAuth();
   const importRef = useRef<HTMLInputElement>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState("");
@@ -43,6 +43,7 @@ export default function PengaturanPage() {
   }
 
   async function exportAll(kind: "backup" | "export") {
+    if (isGuest) { showNotice("Mode tamu tidak dapat mengunduh data mentah."); return; }
     setBusy(true);
     const sheets = await readTables();
     if (sheets) {
@@ -66,6 +67,7 @@ export default function PengaturanPage() {
   }
 
   async function importMembers(event: ChangeEvent<HTMLInputElement>) {
+    if (isGuest) { showNotice("Mode tamu hanya dapat melihat data."); return; }
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !supabase) return;
@@ -100,6 +102,7 @@ export default function PengaturanPage() {
   }
 
   async function restoreBackup(event: ChangeEvent<HTMLInputElement>) {
+    if (isGuest) { showNotice("Mode tamu hanya dapat melihat data."); return; }
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !supabase) return;
@@ -121,5 +124,5 @@ export default function PengaturanPage() {
     } finally { setBusy(false); }
   }
 
-  return <main className="dashboard-shell settings-page"><div className="grain" aria-hidden="true" /><div className="settings-content"><span className="fund-label">PENGATURAN DATA</span><h1>Backup dan data Excel</h1><p className="settings-intro">Kelola salinan data Kas Wangon Mas dalam format Excel. Gunakan template untuk menyiapkan data anggota sebelum diimport.</p><div className="settings-grid"><section className="settings-card"><span className="settings-number">01</span><h2>Backup</h2><p>Unduh seluruh tabel Supabase ke satu file Excel sebagai cadangan lengkap.</p><button disabled={busy} onClick={() => void exportAll("backup")}>Unduh Backup Excel</button></section><section className="settings-card"><span className="settings-number">02</span><h2>Restore</h2><p>Tambahkan kembali data dari file backup Excel ke Supabase. Data dengan ID sama akan diperbarui.</p><button disabled={busy} onClick={() => restoreRef.current?.click()}>Pilih File Restore</button><input ref={restoreRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void restoreBackup(event)} /></section><section className="settings-card"><span className="settings-number">03</span><h2>Import</h2><p>Isi data pelanggan/anggota melalui template Excel, lalu masukkan ke sistem.</p><button onClick={downloadTemplate}>Unduh Template Anggota</button>{canEdit && <><button disabled={busy} className="secondary-action" onClick={() => importRef.current?.click()}>Import File Excel</button><input ref={importRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void importMembers(event)} /></>}</section><section className="settings-card"><span className="settings-number">04</span><h2>Export</h2><p>Unduh salinan data untuk dibaca atau diolah di Microsoft Excel, Google Sheets, atau LibreOffice.</p><button disabled={busy} onClick={() => void exportAll("export")}>Export ke Excel</button></section></div><div className="settings-note"><b>Format import anggota</b><span>Kolom wajib: Nama dan Kelompok. Jika satu anggota mengikuti beberapa kelompok, pisahkan nama kelompok dengan koma.</span></div>{notice && <div className="toast">{notice}</div>}</div></main>;
+  return <main className="dashboard-shell settings-page"><div className="grain" aria-hidden="true" /><div className="settings-content"><span className="fund-label">PENGATURAN DATA</span><h1>Backup dan data Excel</h1><p className="settings-intro">Kelola salinan data Kas Wangon Mas dalam format Excel. Gunakan template untuk menyiapkan data anggota sebelum diimport.</p>{isGuest ? <div className="settings-note"><b>Mode lihat saja</b><span>Tamu dapat melihat isi pembukuan, tetapi unduh backup, export, restore, dan import data dinonaktifkan untuk menjaga privasi.</span></div> : <div className="settings-grid"><section className="settings-card"><span className="settings-number">01</span><h2>Backup</h2><p>Unduh seluruh tabel Supabase ke satu file Excel sebagai cadangan lengkap.</p><button disabled={busy} onClick={() => void exportAll("backup")}>Unduh Backup Excel</button></section><section className="settings-card"><span className="settings-number">02</span><h2>Restore</h2><p>Tambahkan kembali data dari file backup Excel ke Supabase. Data dengan ID sama akan diperbarui.</p><button disabled={busy} onClick={() => restoreRef.current?.click()}>Pilih File Restore</button><input ref={restoreRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void restoreBackup(event)} /></section><section className="settings-card"><span className="settings-number">03</span><h2>Import</h2><p>Isi data pelanggan/anggota melalui template Excel, lalu masukkan ke sistem.</p><button onClick={downloadTemplate}>Unduh Template Anggota</button>{canEdit && <><button disabled={busy} className="secondary-action" onClick={() => importRef.current?.click()}>Import File Excel</button><input ref={importRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void importMembers(event)} /></>}</section><section className="settings-card"><span className="settings-number">04</span><h2>Export</h2><p>Unduh salinan data untuk dibaca atau diolah di Microsoft Excel, Google Sheets, atau LibreOffice.</p><button disabled={busy} onClick={() => void exportAll("export")}>Export ke Excel</button></section></div>}<div className="settings-note"><b>Format import anggota</b><span>Kolom wajib: Nama dan Kelompok. Jika satu anggota mengikuti beberapa kelompok, pisahkan nama kelompok dengan koma.</span></div>{notice && <div className="toast">{notice}</div>}</div></main>;
 }

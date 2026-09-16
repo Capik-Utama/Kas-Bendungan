@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { formatRupiah } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { maskName } from "@/lib/privacy";
 
 type WargaOption = {
   id: number;
@@ -34,7 +35,7 @@ type GroupCard = { id: number; nama: string; kelompokId: number | null };
 type Group = { id: number; nama: string };
 
 export default function IuranPage() {
-  const { canEdit } = useAuth();
+  const { canEdit, isGuest } = useAuth();
   const searchParams = useSearchParams();
   const scopedKartuId = Number(searchParams.get("kartu_id") || 0);
   const [warga, setWarga] = useState<WargaOption[]>([]);
@@ -206,7 +207,7 @@ export default function IuranPage() {
           <tbody>
             {sortedItems.map((item) => (
               <tr key={item.id} className="border-t border-zinc-200">
-                <td className="whitespace-nowrap px-4 py-3">{Array.isArray(item.warga) ? (item.warga[0]?.nama ?? "-") : (item.warga?.nama ?? "-")}</td>
+                <td className="whitespace-nowrap px-4 py-3">{isGuest ? maskName(Array.isArray(item.warga) ? item.warga[0]?.nama : item.warga?.nama) : (Array.isArray(item.warga) ? (item.warga[0]?.nama ?? "-") : (item.warga?.nama ?? "-"))}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatTanggal(item.tanggal_bayar)}</td>
                 <td className="px-4 py-3">{item.keterangan || item.bulan || "-"}</td>

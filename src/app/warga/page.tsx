@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { maskAddress, maskFixed, maskName, maskPhone } from "@/lib/privacy";
 
 type Group = { id: number; nama: string };
 type GroupCard = { id: number; nama: string; parent_id: number | null; kategori: string; allow_tambah_anggota: boolean };
@@ -14,6 +15,7 @@ type Warga = {
   nik_kk: string | null;
   nik_ktp: string | null;
   nomor_telepon: string | null;
+  alamat_rt: string | null;
   warga_kelompok?: { kelompok_id: number }[];
 };
 type Iuran = { warga_id: number | null; nominal: number | string | null };
@@ -21,7 +23,7 @@ type Iuran = { warga_id: number | null; nominal: number | string | null };
 const money = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
 
 export default function WargaPage() {
-  const { canEdit, user } = useAuth();
+  const { canEdit, user, isGuest } = useAuth();
   const searchParams = useSearchParams();
   const groupFilter = searchParams.get("kelompok");
   const [items, setItems] = useState<Warga[]>([]);
@@ -41,7 +43,7 @@ export default function WargaPage() {
   const loadWarga = async () => {
     if (!supabase) return;
     const [{ data, error: loadError }, { data: iuranData, error: iuranError }] = await Promise.all([
-      supabase.from("warga").select("id, nama, kelompok, nik_kk, nik_ktp, nomor_telepon, warga_kelompok(kelompok_id)").order("nama", { ascending: true }),
+      supabase.from("warga").select("id, nama, kelompok, nik_kk, nik_ktp, nomor_telepon, alamat_rt, warga_kelompok(kelompok_id)").order("nama", { ascending: true }),
       supabase.from("iuran").select("warga_id, nominal"),
     ]);
     if (loadError || iuranError) { setError(loadError?.message || iuranError?.message || "Data anggota belum bisa dibaca."); return; }
@@ -144,5 +146,5 @@ export default function WargaPage() {
   return <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">Data Anggota{groupFilter ? ` - ${groupFilter}` : ""}</h1><p className="text-sm text-zinc-600">{groupFilter ? `Menampilkan anggota yang mengikuti kelompok ${groupFilter} saja.` : "Satu anggota dapat mengikuti beberapa kelompok sekaligus."}</p></div>{canEdit && <button type="button" onClick={() => { setEditing(null); setShowForm((current) => !current); }} className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-[.98]">{showForm && !editing ? "Tutup Form" : "+ Tambah Anggota"}</button>}</div>
     {canEdit && showForm && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-3"><input required value={nama} onChange={(event) => setNama(event.target.value)} placeholder="Nama anggota *" className="rounded-lg border border-zinc-300 px-3 py-2" />{groupChecklist}<input value={nomorTelepon} onChange={(event) => setNomorTelepon(event.target.value)} placeholder="No. HP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" /><input value={nikKtp} onChange={(event) => setNikKtp(event.target.value)} placeholder="NIK KTP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" /><input value={nikKk} onChange={(event) => setNikKk(event.target.value)} placeholder="NIK KK (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" /><div className="flex gap-2"><button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700" type="submit">{editing ? "Simpan Perubahan" : "Simpan Anggota"}</button>{editing && <button className="rounded-lg border border-zinc-300 px-3 py-2" type="button" onClick={resetForm}>Batal</button>}</div></form>}
     {error ? <p className="text-sm text-red-600">{error}</p> : null}
-    <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white shadow-sm"><table className="min-w-[980px] text-left text-sm"><thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700"><tr>{([ ["nama", "Nama"], ["nomor_telepon", "No. HP"], ["total_iuran", "Total Iuran"], ["kelompok", "Kelompok"], ["nik_ktp", "NIK KTP"], ["nik_kk", "NIK KK"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}<th className="whitespace-nowrap px-4 py-3">Aksi</th></tr></thead><tbody>{sortedItems.map((item) => <tr key={item.id} className="border-t border-zinc-200 align-top"><td className="whitespace-nowrap px-4 py-3 font-medium">{item.nama}</td><td className="whitespace-nowrap px-4 py-3">{item.nomor_telepon || "-"}</td><td className="whitespace-nowrap px-4 py-3">{money(totals[item.id] ?? 0)}</td><td className="whitespace-nowrap px-4 py-3">{(item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "-"}</td><td className="whitespace-nowrap px-4 py-3">{item.nik_ktp || "-"}</td><td className="whitespace-nowrap px-4 py-3">{item.nik_kk || "-"}</td><td className="whitespace-nowrap px-4 py-3"><div className="flex gap-2">{canEdit && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canEdit && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td></tr>)}{sortedItems.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Belum ada data anggota{groupFilter ? ` di ${groupFilter}` : ""}.</td></tr> : null}</tbody></table></div></section>;
+    <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white shadow-sm"><table className="min-w-[1120px] text-left text-sm"><thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700"><tr>{([ ["nama", "Nama"], ["nomor_telepon", "No. HP"], ["total_iuran", "Total Iuran"], ["kelompok", "Kelompok"], ["nik_ktp", "NIK KTP"], ["nik_kk", "NIK KK"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}<th className="whitespace-nowrap px-4 py-3">Alamat</th><th className="whitespace-nowrap px-4 py-3">Aksi</th></tr></thead><tbody>{sortedItems.map((item) => <tr key={item.id} className="border-t border-zinc-200 align-top"><td className="whitespace-nowrap px-4 py-3 font-medium">{isGuest ? maskName(item.nama) : item.nama}</td><td className="whitespace-nowrap px-4 py-3">{isGuest ? maskPhone(item.nomor_telepon) : (item.nomor_telepon || "-")}</td><td className="whitespace-nowrap px-4 py-3">{money(totals[item.id] ?? 0)}</td><td className="whitespace-nowrap px-4 py-3">{(item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "-"}</td><td className="whitespace-nowrap px-4 py-3">{isGuest ? maskFixed(item.nik_ktp, 6) : (item.nik_ktp || "-")}</td><td className="whitespace-nowrap px-4 py-3">{isGuest ? maskFixed(item.nik_kk, 6) : (item.nik_kk || "-")}</td><td className="px-4 py-3">{isGuest ? maskAddress(item.alamat_rt) : (item.alamat_rt || "-")}</td><td className="whitespace-nowrap px-4 py-3"><div className="flex gap-2">{canEdit && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canEdit && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td></tr>)}{sortedItems.length === 0 ? <tr><td colSpan={8} className="px-4 py-6 text-center text-zinc-500">Belum ada data anggota{groupFilter ? ` di ${groupFilter}` : ""}.</td></tr> : null}</tbody></table></div></section>;
 }
