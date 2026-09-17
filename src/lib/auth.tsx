@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
+  const signOutRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   useEffect(() => {
     if (!supabase) return;
@@ -58,6 +59,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => { void loadProfile(session?.user ?? null); });
     return () => { mounted = false; listener.subscription.unsubscribe(); };
   }, []);
+
+  useEffect(() => {
+    if (!supabase || !user) return;
+    const channel = supabase.channel("kas-bendungan-global-realtime").on("postgres_changes", { event: "*", schema: "public" }, () => {
+      window.dispatchEvent(new Event("kas-bendungan:data-changed"));
+    }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const resetIdleTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { void signOutRef.current(); }, 10 * 60 * 1000);
+    };
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+    events.forEach((event) => window.addEventListener(event, resetIdleTimer, { passive: true }));
+    resetIdleTimer();
+    return () => { clearTimeout(timer); events.forEach((event) => window.removeEventListener(event, resetIdleTimer)); };
+  }, [user]);
 
   const value = useMemo<AuthContextValue>(() => ({
     user, profile, loading,
@@ -83,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     canCreateAccounts: !isGuest && (profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara"),
     canEditAccounts: !isGuest && (profile?.role === "developer" || profile?.role === "ketua" || profile?.role === "bendahara"),
   }), [user, profile, loading, isGuest]);
+
+  useEffect(() => { signOutRef.current = value.signOut; }, [value.signOut]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

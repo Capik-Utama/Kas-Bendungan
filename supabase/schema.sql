@@ -71,6 +71,17 @@ drop trigger if exists audit_kartu_kas on public.kartu_kas; create trigger audit
 drop trigger if exists audit_kelompok on public.kelompok; create trigger audit_kelompok after insert or update or delete on public.kelompok for each row execute function public.audit_row_change();
 drop trigger if exists audit_warga on public.warga; create trigger audit_warga after insert or update or delete on public.warga for each row execute function public.audit_row_change();
 drop trigger if exists audit_warga_kelompok on public.warga_kelompok; create trigger audit_warga_kelompok after insert or update or delete on public.warga_kelompok for each row execute function public.audit_row_change();
+do $$
+declare table_name text;
+begin
+  foreach table_name in array array['profiles','warga','kelompok','warga_kelompok','profile_kelompok','iuran','pengeluaran','kartu_kas','audit_logs'] loop
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', table_name);
+    exception when duplicate_object then null;
+    end;
+  end loop;
+end;
+$$;
 alter table public.iuran alter column warga_id drop not null;
 alter table public.iuran drop constraint if exists iuran_warga_id_fkey;
 alter table public.iuran add constraint iuran_warga_id_fkey foreign key (warga_id) references public.warga(id) on delete set null;

@@ -14,6 +14,15 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { const saved = window.localStorage.getItem("kas-bendungan-theme"); if (saved && themes.some(([value]) => value === saved)) setTheme(saved); }, []);
   useEffect(() => { window.localStorage.setItem("kas-bendungan-theme", theme); }, [theme]);
+  useEffect(() => {
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const refreshData = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => window.location.reload(), 250);
+    };
+    window.addEventListener("kas-bendungan:data-changed", refreshData);
+    return () => { if (refreshTimer) clearTimeout(refreshTimer); window.removeEventListener("kas-bendungan:data-changed", refreshData); };
+  }, []);
   if (loading) return <main className="login-shell"><p className="login-loading">Menghubungkan ke Supabase...</p><span className="login-footer-credit">© 2026 Kas Desa - By Capik</span></main>;
   if (!user || !profile) return <LoginScreen />;
   function selectMenu(path: string) { if (path === "#tema") { setThemeSettingsOpen((open) => !open); return; } router.push(path); setDrawerOpen(false); }
