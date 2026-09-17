@@ -29,7 +29,11 @@ const guestProfile: AppProfile = { id: "guest", username: "Tamu", display_name: 
 
 function usernameToEmail(username: string) { return `${username.trim().toLowerCase()}@kas-bendungan.id`; }
 async function logActivity(category: string, action: string, description: string) {
-  if (supabase) await supabase.rpc("log_activity", { p_category: category, p_action: action, p_description: description });
+  if (!supabase) return;
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) return;
+  const { error } = await supabase.rpc("log_activity", { p_category: category, p_action: action, p_description: description });
+  if (error) console.error("Gagal mencatat aktivitas:", error.message);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -67,7 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     enterGuest: async () => {
       if (!supabase) return { error: "Supabase belum dikonfigurasi." };
       const { error } = await supabase.auth.signInAnonymously();
-      if (!error) await logActivity("Autentikasi", "LOGIN_TAMU", "Login oleh Tamu");
+      if (!error) {
+        await supabase.auth.getSession();
+        await logActivity("Autentikasi", "LOGIN_TAMU", "Login oleh Tamu");
+      }
       return { error: error?.message ?? null };
     },
     signOut: async () => { if (supabase) { await logActivity("Autentikasi", "LOGOUT", `Logout oleh ${isGuest ? "Tamu" : profile?.username ?? "Tamu"}`); await supabase.auth.signOut(); } },
