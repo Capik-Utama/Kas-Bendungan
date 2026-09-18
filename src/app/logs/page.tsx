@@ -6,7 +6,13 @@ import { useAuth } from "@/lib/auth";
 
 type AuditLog = { id: number; actor_id: string | null; category: string; action: string; description: string; entity: string | null; entity_id: string | null; created_at: string };
 
-function formatDate(value: string) { return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" }).format(new Date(value)); }
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return "-";
+  const datePart = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" }).format(date);
+  const timePart = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date).replace(".", ":");
+  return `${datePart} (${timePart})`;
+}
 function isGuestActivity(item: AuditLog) { return item.action === "LOGIN_TAMU" || /(?:login|logout) oleh tamu/i.test(item.description); }
 function activityLabel(item: AuditLog) {
   if (item.action === "LOGIN" && item.description.toLowerCase().startsWith("login oleh")) return item.description.replace(/^login oleh/i, "Login oleh");
