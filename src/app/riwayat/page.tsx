@@ -38,7 +38,15 @@ function namaKelompok(value: RelatedRecord) {
 
 function formatTanggal(value: string) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T00:00:00`));
+  const date = value.length === 10 ? new Date(`${value}T00:00:00`) : new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const datePart = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" }).format(date);
+  const timePart = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date).replace(".", ":");
+  return `${datePart} (${timePart})`;
+}
+
+function tanggalUntukFilter(value: string) {
+  return value.slice(0, 10);
 }
 
 function formatNamaFile(value: string) {
@@ -70,18 +78,18 @@ export default function RiwayatPage() {
     if (!client) return;
     const loadHistory = async () => {
       const [iuranResult, pengeluaranResult, groupResult] = await Promise.all([
-        client.from("iuran").select("id, tanggal_bayar, nominal, bulan, keterangan, kartu_id, warga:warga_id(nama), kelompok:kartu_id(nama), petugas:petugas_id(username)"),
-        client.from("pengeluaran").select("id, tanggal, nominal, keperluan, keterangan, kartu_id, kelompok:kartu_id(nama), petugas:petugas_id(username)"),
+        client.from("iuran").select("id, tanggal_bayar, created_at, nominal, bulan, keterangan, kartu_id, warga:warga_id(nama), kelompok:kartu_id(nama), petugas:petugas_id(username)"),
+        client.from("pengeluaran").select("id, tanggal, created_at, nominal, keperluan, keterangan, kartu_id, kelompok:kartu_id(nama), petugas:petugas_id(username)"),
         scopedKartuId ? client.from("kartu_kas").select("nama").eq("id", scopedKartuId).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
       if (iuranResult.error || pengeluaranResult.error || groupResult.error) { setError(iuranResult.error?.message ?? pengeluaranResult.error?.message ?? groupResult.error?.message ?? "Gagal memuat laporan"); return; }
       setGroupName(groupResult.data?.nama ? String(groupResult.data.nama) : "Semua Kelompok");
       const iuranItems: RiwayatItem[] = (iuranResult.data ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId).map((item) => ({
-        id: `iuran-${item.id}`, nama: namaWarga(item.warga as RelatedWarga), tipe: "MASUK", tanggal: item.tanggal_bayar,
+        id: `iuran-${item.id}`, nama: namaWarga(item.warga as RelatedWarga), tipe: "MASUK", tanggal: item.created_at || item.tanggal_bayar,
         nominal: Number(item.nominal ?? 0), sumber: "Iuran", keterangan: item.keterangan || item.bulan || "-", kelompok: namaKelompok(item.kelompok as RelatedRecord), petugas: namaPetugas(item.petugas as RelatedRecord),
       }));
       const pengeluaranItems: RiwayatItem[] = (pengeluaranResult.data ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId).map((item) => ({
-        id: `pengeluaran-${item.id}`, nama: "", tipe: "KELUAR", tanggal: item.tanggal, nominal: Number(item.nominal ?? 0),
+        id: `pengeluaran-${item.id}`, nama: "", tipe: "KELUAR", tanggal: item.created_at || item.tanggal, nominal: Number(item.nominal ?? 0),
         sumber: item.keperluan || "Pengeluaran", keterangan: item.keterangan || "-", kelompok: namaKelompok(item.kelompok as RelatedRecord), petugas: namaPetugas(item.petugas as RelatedRecord),
       }));
       setItems([...iuranItems, ...pengeluaranItems]);
@@ -94,7 +102,7 @@ export default function RiwayatPage() {
 
   const groupOptions = useMemo(() => ["Semua", ...Array.from(new Set(items.map((item) => item.kelompok))).sort((a, b) => a.localeCompare(b, "id"))], [items]);
   const officerOptions = useMemo(() => ["Semua", ...Array.from(new Set(items.map((item) => item.petugas))).sort((a, b) => a.localeCompare(b, "id"))], [items]);
-  const filteredItems = useMemo(() => items.filter((item) => (!startDate || item.tanggal >= startDate) && (!endDate || item.tanggal <= endDate) && (groupFilter === "Semua" || item.kelompok === groupFilter) && (typeFilter === "SEMUA" || item.tipe === typeFilter) && (officerFilter === "Semua" || item.petugas === officerFilter)), [items, startDate, endDate, groupFilter, typeFilter, officerFilter]);
+  const filteredItems = useMemo(() => items.filter((item) => (!startDate || tanggalUntukFilter(item.tanggal) >= startDate) && (!endDate || tanggalUntukFilter(item.tanggal) <= endDate) && (groupFilter === "Semua" || item.kelompok === groupFilter) && (typeFilter === "SEMUA" || item.tipe === typeFilter) && (officerFilter === "Semua" || item.petugas === officerFilter)), [items, startDate, endDate, groupFilter, typeFilter, officerFilter]);
   const sortedItems = useMemo(() => [...filteredItems].sort((a, b) => {
     const left = sortKey === "nominal" ? a.nominal : a[sortKey];
     const right = sortKey === "nominal" ? b.nominal : b[sortKey];
