@@ -23,7 +23,7 @@ type Iuran = { id: number; warga_id: number | null; nominal: number | string | n
 const INITIAL_IURAN_NOTE = "Iuran awal";
 
 const money = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
-const formatAddedDate = (value: string) => new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(value));
+const formatAddedDate = (value: string) => new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZone: "Asia/Jakarta", timeZoneName: "short" }).format(new Date(value));
 
 export default function WargaPage() {
   const { canEdit, user, isGuest, profile } = useAuth();
@@ -42,8 +42,8 @@ export default function WargaPage() {
   const [nikKtp, setNikKtp] = useState("");
   const [nomorTelepon, setNomorTelepon] = useState("");
   const [iuranAwal, setIuranAwal] = useState("");
-  const [sortKey, setSortKey] = useState<"nama" | "created_at" | "nomor_telepon" | "total_iuran" | "kelompok" | "nik_ktp" | "nik_kk">("nama");
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortKey, setSortKey] = useState<"nama" | "created_at" | "nomor_telepon" | "total_iuran" | "kelompok" | "nik_ktp" | "nik_kk">("created_at");
+  const [sortAsc, setSortAsc] = useState(false);
   const [error, setError] = useState<string | null>(supabase ? null : "Supabase belum dikonfigurasi.");
   const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -230,8 +230,9 @@ export default function WargaPage() {
     const groupName = (item: Warga) => (item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "";
     const value = (item: Warga) => sortKey === "total_iuran" ? (totals[item.id] ?? 0) : sortKey === "kelompok" ? groupName(item) : String(item[sortKey] ?? "");
     const left = value(a); const right = value(b);
-    const result = typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "id", { sensitivity: "base" });
-    return sortAsc ? result : -result;
+    const result = sortKey === "created_at" ? String(left).localeCompare(String(right)) : typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "id", { sensitivity: "base" });
+    const stableResult = result || a.id - b.id;
+    return sortAsc ? stableResult : -stableResult;
   }), [groupFilter, groups, items, sortAsc, sortKey, totals]);
   const toggleSort = (key: typeof sortKey) => { if (sortKey === key) setSortAsc((value) => !value); else { setSortKey(key); setSortAsc(key === "nama"); } };
   const sortLabel = (key: typeof sortKey) => sortKey === key ? (sortAsc ? " ↑" : " ↓") : " ↕";
@@ -265,29 +266,31 @@ export default function WargaPage() {
     {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
     {notice ? <p role="status" className="text-sm text-emerald-700">{notice}</p> : null}
     <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <table className="min-w-[1240px] text-left text-sm">
+      <table className="min-w-[1380px] text-left text-sm">
         <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
           <tr>
-            {([ ["nama", "Nama"], ["created_at", "Tanggal ditambahkan"], ["nomor_telepon", "No. HP"], ["total_iuran", "Total Iuran"], ["kelompok", "Kelompok"], ["nik_ktp", "NIK KTP"], ["nik_kk", "NIK KK"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
+            <th className="whitespace-nowrap px-4 py-3">No</th>
+            {([ ["nama", "Nama"], ["nomor_telepon", "No. HP"], ["total_iuran", "Total Iuran"], ["kelompok", "Kelompok"], ["created_at", "Tanggal Gabung"], ["nik_ktp", "NIK KTP"], ["nik_kk", "NIK KK"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
             <th className="whitespace-nowrap px-4 py-3">Alamat</th>
             <th className="whitespace-nowrap px-4 py-3">Aksi</th>
           </tr>
         </thead>
         <tbody>
-          {sortedItems.map((item) => (
+          {sortedItems.map((item, index) => (
             <tr key={item.id} className="border-t border-zinc-200 align-top">
+              <td className="whitespace-nowrap px-4 py-3">{index + 1}</td>
               <td className="whitespace-nowrap px-4 py-3 font-medium">{isGuest ? maskName(item.nama) : item.nama}</td>
-              <td className="whitespace-nowrap px-4 py-3">{item.created_at ? formatAddedDate(item.created_at) : "-"}</td>
               <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskPhone(item.nomor_telepon) : (item.nomor_telepon || "-")}</td>
               <td className="whitespace-nowrap px-4 py-3">{money(totals[item.id] ?? 0)}</td>
               <td className="whitespace-nowrap px-4 py-3">{(item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "-"}</td>
+              <td className="whitespace-nowrap px-4 py-3">{item.created_at ? formatAddedDate(item.created_at) : "-"}</td>
               <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskFixed(item.nik_ktp, 6) : (item.nik_ktp || "-")}</td>
               <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskFixed(item.nik_kk, 6) : (item.nik_kk || "-")}</td>
               <td className="px-4 py-3">{isGuest ? maskAddress(item.alamat_rt) : (item.alamat_rt || "-")}</td>
               <td className="whitespace-nowrap px-4 py-3"><div className="flex gap-2">{canEdit && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canEdit && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td>
             </tr>
           ))}
-          {sortedItems.length === 0 ? <tr><td colSpan={9} className="px-4 py-6 text-center text-zinc-500">Belum ada data anggota{groupFilter ? ` di ${groupFilter}` : ""}.</td></tr> : null}
+          {sortedItems.length === 0 ? <tr><td colSpan={10} className="px-4 py-6 text-center text-zinc-500">Belum ada data anggota{groupFilter ? ` di ${groupFilter}` : ""}.</td></tr> : null}
         </tbody>
       </table>
     </div>
