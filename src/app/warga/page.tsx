@@ -226,6 +226,7 @@ export default function WargaPage() {
     }
   };
 
+  const totalIuranSemuaAnggota = items.reduce((sum, item) => sum + (totals[item.id] ?? 0), 0);
   const sortedItems = useMemo(() => [...(groupFilter ? items.filter((item) => (item.warga_kelompok || []).some((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama === groupFilter)) : items)].sort((a, b) => {
     const groupName = (item: Warga) => (item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "";
     const value = (item: Warga) => sortKey === "total_iuran" ? (totals[item.id] ?? 0) : sortKey === "kelompok" ? groupName(item) : String(item[sortKey] ?? "");
@@ -294,6 +295,10 @@ export default function WargaPage() {
           {sortedItems.length === 0 ? <tr><td colSpan={10} className="px-4 py-6 text-center text-zinc-500">Belum ada data anggota{groupFilter ? ` di ${groupFilter}` : ""}.</td></tr> : null}
         </tbody>
       </table>
+    </div>
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+      <span className="font-medium text-zinc-700">Total iuran semua anggota</span>
+      <strong className="text-lg text-zinc-900">{money(totalIuranSemuaAnggota)}</strong>
     </div>
   </section>;
 }
