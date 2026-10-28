@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 
@@ -22,13 +22,12 @@ function rupiah(value: number) { return new Intl.NumberFormat("id-ID", { style: 
 export default function DashboardPage() {
   const { canEdit } = useAuth();
   const [funds, setFunds] = useState<Fund[]>([]);
+  const [summaryTotal, setSummaryTotal] = useState(0);
   const [cardColors, setCardColors] = useState(shuffledColors);
   const [notice, setNotice] = useState("");
   const [loadingSummary, setLoadingSummary] = useState(isSupabaseConfigured);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [allowMembers, setAllowMembers] = useState(false);
-  const total = useMemo(() => funds.reduce((sum, fund) => sum + fund.amount, 0), [funds]);
-
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
@@ -44,7 +43,10 @@ export default function DashboardPage() {
       const expense = new Map<number, number>();
       for (const row of iuranResult.data ?? []) if (row.kartu_id) income.set(Number(row.kartu_id), (income.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
       for (const row of pengeluaranResult.data ?? []) if (row.kartu_id) expense.set(Number(row.kartu_id), (expense.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
+      const totalIncome = (iuranResult.data ?? []).reduce((sum, row) => sum + Number(row.nominal ?? 0), 0);
+      const totalExpenses = (pengeluaranResult.data ?? []).reduce((sum, row) => sum + Number(row.nominal ?? 0), 0);
       const cards = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: (income.get(Number(card.id)) ?? 0) - (expense.get(Number(card.id)) ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori }));
+      setSummaryTotal(totalIncome - totalExpenses);
       setFunds(cards.filter((card) => card.parentId === null));
       setLoadingSummary(false);
     };
@@ -81,7 +83,7 @@ export default function DashboardPage() {
   return (
     <main className="dashboard-shell">
       <div className="grain" aria-hidden="true" />
-      <section className="hero-row"><div className="balance-card"><div className="balance-top"><span>Total seluruh kas</span>{isSupabaseConfigured && <span className="status-dot">● Terhubung</span>}</div><strong>{loadingSummary ? "Memuat..." : rupiah(total)}</strong><div className="balance-bottom"><span>Terakhir diperbarui hari ini</span><span>↗</span></div></div></section>
+      <section className="hero-row"><div className="balance-card"><div className="balance-top"><span>Total seluruh kas</span>{isSupabaseConfigured && <span className="status-dot">● Terhubung</span>}</div><strong>{loadingSummary ? "Memuat..." : rupiah(summaryTotal)}</strong><div className="balance-bottom"><span>Terakhir diperbarui hari ini</span><span>↗</span></div></div></section>
       <section className="fund-grid" aria-label="Kantong kas bertingkat">
         {funds.map((fund, index) => <Link key={fund.id} href={`/kartu/${fund.id}`} className={`fund-card ${cardColors[index % cardColors.length]}`}><div className="fund-icon">{fund.icon}</div><div className="fund-content"><span className="fund-label">KAS {String(index + 1).padStart(2, "0")}</span><h4>{fund.name}</h4>{fund.note && <p>{fund.note}</p>}<div className="fund-amount">{rupiah(fund.amount)}</div></div><span className="card-arrow">Buka ↗</span></Link>)}
         {canEdit && <button className="add-card" onClick={() => setShowAddMenu((open) => !open)} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah kartu</b><small>Buat tingkat pembukuan baru</small></span></button>}

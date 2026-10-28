@@ -43,6 +43,7 @@ export default function WargaPage() {
   const [sortKey, setSortKey] = useState<"nama" | "nomor_telepon" | "total_iuran" | "kelompok" | "nik_ktp" | "nik_kk">("nama");
   const [sortAsc, setSortAsc] = useState(true);
   const [error, setError] = useState<string | null>(supabase ? null : "Supabase belum dikonfigurasi.");
+  const [notice, setNotice] = useState<string | null>(null);
 
   const loadWarga = async () => {
     if (!supabase) return;
@@ -138,11 +139,17 @@ export default function WargaPage() {
       petugas_id: profile?.id ?? null,
     };
     if (existing) {
-      const { error } = await supabase.from("iuran").update(payload).eq("id", existing.id);
-      return error?.message ?? null;
+      const { data, error } = await supabase.from("iuran").update(payload).eq("id", existing.id).select("id,nominal,kartu_id").maybeSingle();
+      if (error) return error.message;
+      if (!data) return "Transaksi iuran awal tidak ditemukan atau tidak dapat diperbarui.";
+      if (Number(data.nominal) !== amount) return "Nominal yang tersimpan tidak sesuai dengan input.";
+      return null;
     }
-    const { error } = await supabase.from("iuran").insert(payload);
-    return error?.message ?? null;
+    const { data, error } = await supabase.from("iuran").insert(payload).select("id,nominal,kartu_id").single();
+    if (error) return error.message;
+    if (!data) return "Transaksi iuran awal tidak dikembalikan oleh database setelah disimpan.";
+    if (Number(data.nominal) !== amount) return "Nominal yang tersimpan tidak sesuai dengan input.";
+    return null;
   };
 
   const deleteMember = async (item: Warga) => {
@@ -172,8 +179,9 @@ export default function WargaPage() {
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); if (!supabase) return; setError(null); if (!nama.trim() || !selectedGroups.length) { setError("Nama anggota dan minimal satu kelompok wajib diisi."); return; }
-    const initialAmount = iuranAwal.trim() ? Number(iuranAwal) : 0;
+    event.preventDefault(); if (!supabase) return; setError(null); setNotice(null); if (!nama.trim() || !selectedGroups.length) { setError("Nama anggota dan minimal satu kelompok wajib diisi."); return; }
+    const submittedAmount = String(new FormData(event.currentTarget).get("iuranAwal") ?? "").trim();
+    const initialAmount = submittedAmount ? Number(submittedAmount) : Number.NaN;
     if (!Number.isFinite(initialAmount) || initialAmount < 0) { setError("Nominal iuran awal harus berupa angka nol atau lebih."); return; }
     if (!editing) {
       const password = window.prompt("Masukkan password login untuk mengonfirmasi penambahan anggota:");
@@ -190,6 +198,7 @@ export default function WargaPage() {
     const iuranError = await saveInitialIuran(wargaId, initialAmount, kelompokUtama);
     if (iuranError) { setError(`Anggota tersimpan, tetapi iuran awal gagal disimpan: ${iuranError}`); await loadWarga(); return; }
     resetForm(); await loadWarga();
+    setNotice(initialAmount > 0 ? `Iuran awal ${money(initialAmount)} tersimpan dan masuk ke saldo kas.` : "Anggota tersimpan dengan iuran awal Rp0; saldo kas tidak bertambah.");
   };
 
   const sortedItems = useMemo(() => [...(groupFilter ? items.filter((item) => (item.warga_kelompok || []).some((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama === groupFilter)) : items)].sort((a, b) => {
@@ -204,7 +213,7 @@ export default function WargaPage() {
 
   const startAdd = () => {
     if (showForm && !editing) { setShowForm(false); return; }
-    setEditing(null); setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setSelectedGroups([]); setShowForm(true);
+    setEditing(null); setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setSelectedGroups([]); setNotice(null); setShowForm(true);
   };
   const startEdit = (item: Warga) => {
     const memberGroups = (item.warga_kelompok || []).map((membership) => membership.kelompok_id);
@@ -220,14 +229,15 @@ export default function WargaPage() {
       {groupChecklist}
       <div className="grid content-start gap-1">
         <label htmlFor="initial-dues" className="text-sm font-medium text-zinc-700">Iuran awal (Rp)</label>
-        <input id="initial-dues" type="number" min="0" step="1" inputMode="numeric" value={iuranAwal} onChange={(event) => setIuranAwal(event.target.value)} placeholder="0" className="rounded-lg border border-zinc-300 px-3 py-2" />
-        <p className="text-xs text-zinc-500">Mengubah transaksi iuran pertama. Untuk anggota baru, dicatat pada bulan ini ke kelompok utama.</p>
+        <input id="initial-dues" name="iuranAwal" type="number" min="0" step="1" inputMode="numeric" required value={iuranAwal} onChange={(event) => setIuranAwal(event.target.value)} placeholder="Masukkan nominal (0 jika tidak ada)" className="rounded-lg border border-zinc-300 px-3 py-2" />
+        <p className="text-xs text-zinc-500">Wajib diisi: transaksi iuran pertama anggota. Untuk anggota baru, dicatat pada bulan ini ke kelompok utama.</p>
       </div>
       <input value={nomorTelepon} onChange={(event) => setNomorTelepon(event.target.value)} placeholder="No. HP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" />
       <input value={nikKtp} onChange={(event) => setNikKtp(event.target.value)} placeholder="NIK KTP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" />
       <input value={nikKk} onChange={(event) => setNikKk(event.target.value)} placeholder="NIK KK (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" />
       <div className="flex gap-2"><button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700" type="submit">{editing ? "Simpan Perubahan" : "Simpan Anggota"}</button>{editing && <button className="rounded-lg border border-zinc-300 px-3 py-2" type="button" onClick={resetForm}>Batal</button>}</div>
     </form>}
-    {error ? <p className="text-sm text-red-600">{error}</p> : null}
+    {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
+    {notice ? <p role="status" className="text-sm text-emerald-700">{notice}</p> : null}
     <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white shadow-sm"><table className="min-w-[1120px] text-left text-sm"><thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700"><tr>{([ ["nama", "Nama"], ["nomor_telepon", "No. HP"], ["total_iuran", "Total Iuran"], ["kelompok", "Kelompok"], ["nik_ktp", "NIK KTP"], ["nik_kk", "NIK KK"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}<th className="whitespace-nowrap px-4 py-3">Alamat</th><th className="whitespace-nowrap px-4 py-3">Aksi</th></tr></thead><tbody>{sortedItems.map((item) => <tr key={item.id} className="border-t border-zinc-200 align-top"><td className="whitespace-nowrap px-4 py-3 font-medium">{isGuest ? maskName(item.nama) : item.nama}</td><td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskPhone(item.nomor_telepon) : (item.nomor_telepon || "-")}</td><td className="whitespace-nowrap px-4 py-3">{money(totals[item.id] ?? 0)}</td><td className="whitespace-nowrap px-4 py-3">{(item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "-"}</td><td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskFixed(item.nik_ktp, 6) : (item.nik_ktp || "-")}</td><td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskFixed(item.nik_kk, 6) : (item.nik_kk || "-")}</td><td className="px-4 py-3">{isGuest ? maskAddress(item.alamat_rt) : (item.alamat_rt || "-")}</td><td className="whitespace-nowrap px-4 py-3"><div className="flex gap-2">{canEdit && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canEdit && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td></tr>)}{sortedItems.length === 0 ? <tr><td colSpan={8} className="px-4 py-6 text-center text-zinc-500">Belum ada data anggota{groupFilter ? ` di ${groupFilter}` : ""}.</td></tr> : null}</tbody></table></div></section>;
 }
