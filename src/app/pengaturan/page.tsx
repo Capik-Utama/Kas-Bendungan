@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 const tableNames = ["warga", "kelompok", "warga_kelompok", "iuran", "pengeluaran", "kartu_kas"] as const;
 type TableName = (typeof tableNames)[number];
 type SheetRow = Record<string, unknown>;
-type ResetResult = { anggota?: number; iuran?: number; akun?: number };
+type ResetResult = { anggota?: number; iuran?: number; pengeluaran?: number; akun?: number; developer?: number; kelompok?: number; kartu_kas?: number; audit_logs?: number };
 
 const resetPendingKey = "kas-bendungan-reset-pending";
 const resetSuccessKey = "kas-bendungan-reset-success";
@@ -155,7 +155,7 @@ export default function PengaturanPage() {
       if (error) throw new Error(error.message);
 
       const result = (data ?? {}) as ResetResult;
-      const successMessage = `Reset selesai: ${result.anggota ?? 0} anggota, ${result.iuran ?? 0} iuran, dan ${result.akun ?? 0} akun non-developer dihapus. Akun developer tetap.`;
+      const successMessage = `Reset selesai: ${result.anggota ?? 0} anggota, ${result.iuran ?? 0} iuran, ${result.pengeluaran ?? 0} pengeluaran, ${result.akun ?? 0} akun non-developer dihapus; ${result.developer ?? 0} akun developer tetap.`;
       window.sessionStorage.removeItem(resetPendingKey);
       window.sessionStorage.setItem(resetSuccessKey, successMessage);
       setShowResetConfirmation(false);
@@ -182,7 +182,7 @@ export default function PengaturanPage() {
             <section className="settings-card"><span className="settings-number">02</span><h2>Restore</h2><p>Tambahkan kembali data dari file backup Excel ke Supabase. Data dengan ID sama akan diperbarui.</p><button disabled={busy} onClick={() => restoreRef.current?.click()}>Pilih File Restore</button><input ref={restoreRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void restoreBackup(event)} /></section>
             <section className="settings-card"><span className="settings-number">03</span><h2>Import</h2><p>Isi data pelanggan/anggota melalui template Excel, lalu masukkan ke sistem.</p><button onClick={downloadTemplate}>Unduh Template Anggota</button>{canEdit && <><button disabled={busy} className="secondary-action" onClick={() => importRef.current?.click()}>Import File Excel</button><input ref={importRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void importMembers(event)} /></>}</section>
             <section className="settings-card"><span className="settings-number">04</span><h2>Export</h2><p>Unduh salinan data untuk dibaca atau diolah di Microsoft Excel, Google Sheets, atau LibreOffice.</p><button disabled={busy} onClick={() => void exportAll("export")}>Export ke Excel</button></section>
-            {isDeveloper && <section className="settings-card reset-card"><span className="settings-number">05 · KHUSUS DEVELOPER</span><h2>Reset aplikasi</h2><p>Hapus seluruh data anggota, iuran, dan akun non-developer. Akun developer tetap; pengeluaran, kelompok, kartu kas, audit log, skema, dan file Storage tidak dihapus.</p><button disabled={busy} className="danger-action" onClick={() => { setResetConfirmationText(""); setShowResetConfirmation(true); }}>RESET APLIKASI</button></section>}
+            {isDeveloper && <section className="settings-card reset-card"><span className="settings-number">05 · KHUSUS DEVELOPER</span><h2>Reset aplikasi</h2><p>Bersihkan semua data aplikasi dan akun non-developer, termasuk anggota, iuran, pengeluaran, kelompok, kartu kas, relasi, serta audit log. Semua akun developer, skema database, dan file Storage tetap.</p><button disabled={busy} className="danger-action" onClick={() => { setResetConfirmationText(""); setShowResetConfirmation(true); }}>RESET APLIKASI</button></section>}
           </div>
         )}
         <div className="settings-note"><b>Format import anggota</b><span>Kolom wajib: Nama dan Kelompok. Jika satu anggota mengikuti beberapa kelompok, pisahkan nama kelompok dengan koma.</span></div>
@@ -192,7 +192,7 @@ export default function PengaturanPage() {
         <section className="reset-dialog" role="alertdialog" aria-modal="true" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-description">
           <span className="settings-number">TINDAKAN TIDAK DAPAT DIBATALKAN</span>
           <h2 id="reset-dialog-title">Konfirmasi reset aplikasi</h2>
-          <p id="reset-dialog-description">Data semua anggota (termasuk akun anggota yang terhubung), seluruh iuran, serta semua akun selain developer akan dihapus dari Supabase. Data pengeluaran, kelompok, kartu kas, audit log, struktur database, file Storage, dan semua akun developer tetap dipertahankan.</p>
+          <p id="reset-dialog-description">Semua data tabel aplikasi di Supabase akan dibersihkan: anggota, iuran, pengeluaran, akun non-developer, kelompok, kartu kas, seluruh relasi, dan audit log. Semua akun developer tetap dipertahankan, termasuk akun yang sedang digunakan. Struktur/skema database dan file Storage tidak dihapus.</p>
           <label htmlFor="reset-confirmation-input">Ketik <strong>RESET</strong> untuk melanjutkan.</label>
           <input id="reset-confirmation-input" autoComplete="off" value={resetConfirmationText} onChange={(event) => setResetConfirmationText(event.target.value)} disabled={busy} />
           <div className="reset-dialog-actions"><button type="button" className="cancel-action" disabled={busy} onClick={() => setShowResetConfirmation(false)}>Batal</button><button type="button" className="danger-action" disabled={busy || resetConfirmationText !== "RESET"} onClick={() => void resetApplicationData()}>{busy ? "Sedang mereset..." : "Hapus data dan akun"}</button></div>
