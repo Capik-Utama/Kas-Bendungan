@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -8,6 +8,10 @@ import { supabase } from "@/lib/supabase";
 const tableNames = ["warga", "kelompok", "warga_kelompok", "iuran", "pengeluaran", "kartu_kas"] as const;
 type TableName = (typeof tableNames)[number];
 type SheetRow = Record<string, unknown>;
+type ResetResult = { anggota?: number; iuran?: number; akun?: number };
+
+const resetPendingKey = "kas-bendungan-reset-pending";
+const resetSuccessKey = "kas-bendungan-reset-success";
 
 function downloadWorkbook(workbook: XLSX.WorkBook, filename: string) {
   XLSX.writeFile(workbook, filename);
@@ -22,15 +26,28 @@ function makeWorkbook(sheets: Record<string, SheetRow[]>) {
 export default function PengaturanPage() {
   const { canEdit, isGuest, profile } = useAuth();
   const isReadOnly = isGuest || profile?.role === "anggota";
+  const isDeveloper = profile?.role === "developer";
   const importRef = useRef<HTMLInputElement>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
+  const [resetConfirmationText, setResetConfirmationText] = useState("");
 
   function showNotice(message: string) {
     setNotice(message);
-    window.setTimeout(() => setNotice(""), 4000);
+    window.setTimeout(() => setNotice(""), 5000);
   }
+
+  useEffect(() => {
+    const resetSuccess = window.sessionStorage.getItem(resetSuccessKey);
+    if (resetSuccess) {
+      window.sessionStorage.removeItem(resetSuccessKey);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNotice(resetSuccess);
+      window.setTimeout(() => setNotice(""), 5000);
+    }
+  }, []);
 
   async function readTables(): Promise<Record<string, SheetRow[]> | null> {
     if (!supabase) { showNotice("Supabase belum terkonfigurasi."); return null; }
@@ -126,5 +143,61 @@ export default function PengaturanPage() {
     } finally { setBusy(false); }
   }
 
-  return <main className="dashboard-shell settings-page"><div className="grain" aria-hidden="true" /><div className="settings-content"><span className="fund-label">PENGATURAN DATA</span><h1>Backup dan data Excel</h1><p className="settings-intro">Kelola salinan data Kas Wangon Mas dalam format Excel. Gunakan template untuk menyiapkan data anggota sebelum diimport.</p>{isReadOnly ? <div className="settings-note"><b>Mode lihat saja</b><span>Tamu dapat melihat isi pembukuan, tetapi unduh backup, export, restore, dan import data dinonaktifkan untuk menjaga privasi.</span></div> : <div className="settings-grid"><section className="settings-card"><span className="settings-number">01</span><h2>Backup</h2><p>Unduh seluruh tabel Supabase ke satu file Excel sebagai cadangan lengkap.</p><button disabled={busy} onClick={() => void exportAll("backup")}>Unduh Backup Excel</button></section><section className="settings-card"><span className="settings-number">02</span><h2>Restore</h2><p>Tambahkan kembali data dari file backup Excel ke Supabase. Data dengan ID sama akan diperbarui.</p><button disabled={busy} onClick={() => restoreRef.current?.click()}>Pilih File Restore</button><input ref={restoreRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void restoreBackup(event)} /></section><section className="settings-card"><span className="settings-number">03</span><h2>Import</h2><p>Isi data pelanggan/anggota melalui template Excel, lalu masukkan ke sistem.</p><button onClick={downloadTemplate}>Unduh Template Anggota</button>{canEdit && <><button disabled={busy} className="secondary-action" onClick={() => importRef.current?.click()}>Import File Excel</button><input ref={importRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void importMembers(event)} /></>}</section><section className="settings-card"><span className="settings-number">04</span><h2>Export</h2><p>Unduh salinan data untuk dibaca atau diolah di Microsoft Excel, Google Sheets, atau LibreOffice.</p><button disabled={busy} onClick={() => void exportAll("export")}>Export ke Excel</button></section></div>}<div className="settings-note"><b>Format import anggota</b><span>Kolom wajib: Nama dan Kelompok. Jika satu anggota mengikuti beberapa kelompok, pisahkan nama kelompok dengan koma.</span></div>{notice && <div className="toast">{notice}</div>}</div></main>;
+  async function resetApplicationData() {
+    if (!isDeveloper) { showNotice("Hanya developer yang dapat mereset aplikasi."); return; }
+    if (!supabase) { showNotice("Supabase belum terkonfigurasi."); return; }
+    if (resetConfirmationText !== "RESET") return;
+
+    setBusy(true);
+    window.sessionStorage.setItem(resetPendingKey, "true");
+    try {
+      const { data, error } = await supabase.rpc("reset_application_data");
+      if (error) throw new Error(error.message);
+
+      const result = (data ?? {}) as ResetResult;
+      const successMessage = `Reset selesai: ${result.anggota ?? 0} anggota, ${result.iuran ?? 0} iuran, dan ${result.akun ?? 0} akun non-developer dihapus. Akun developer tetap.`;
+      window.sessionStorage.removeItem(resetPendingKey);
+      window.sessionStorage.setItem(resetSuccessKey, successMessage);
+      setShowResetConfirmation(false);
+      setResetConfirmationText("");
+      window.setTimeout(() => window.location.reload(), 900);
+    } catch (error) {
+      window.sessionStorage.removeItem(resetPendingKey);
+      showNotice(error instanceof Error ? `Reset gagal: ${error.message}` : "Reset gagal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="dashboard-shell settings-page">
+      <div className="grain" aria-hidden="true" />
+      <div className="settings-content">
+        <span className="fund-label">PENGATURAN DATA</span>
+        <h1>Backup dan data Excel</h1>
+        <p className="settings-intro">Kelola salinan data Kas Wangon Mas dalam format Excel. Gunakan template untuk menyiapkan data anggota sebelum diimport.</p>
+        {isReadOnly ? <div className="settings-note"><b>Mode lihat saja</b><span>Tamu dapat melihat isi pembukuan, tetapi unduh backup, export, restore, dan import data dinonaktifkan untuk menjaga privasi.</span></div> : (
+          <div className="settings-grid">
+            <section className="settings-card"><span className="settings-number">01</span><h2>Backup</h2><p>Unduh seluruh tabel Supabase ke satu file Excel sebagai cadangan lengkap.</p><button disabled={busy} onClick={() => void exportAll("backup")}>Unduh Backup Excel</button></section>
+            <section className="settings-card"><span className="settings-number">02</span><h2>Restore</h2><p>Tambahkan kembali data dari file backup Excel ke Supabase. Data dengan ID sama akan diperbarui.</p><button disabled={busy} onClick={() => restoreRef.current?.click()}>Pilih File Restore</button><input ref={restoreRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void restoreBackup(event)} /></section>
+            <section className="settings-card"><span className="settings-number">03</span><h2>Import</h2><p>Isi data pelanggan/anggota melalui template Excel, lalu masukkan ke sistem.</p><button onClick={downloadTemplate}>Unduh Template Anggota</button>{canEdit && <><button disabled={busy} className="secondary-action" onClick={() => importRef.current?.click()}>Import File Excel</button><input ref={importRef} hidden type="file" accept=".xlsx,.xls" onChange={(event) => void importMembers(event)} /></>}</section>
+            <section className="settings-card"><span className="settings-number">04</span><h2>Export</h2><p>Unduh salinan data untuk dibaca atau diolah di Microsoft Excel, Google Sheets, atau LibreOffice.</p><button disabled={busy} onClick={() => void exportAll("export")}>Export ke Excel</button></section>
+            {isDeveloper && <section className="settings-card reset-card"><span className="settings-number">05 · KHUSUS DEVELOPER</span><h2>Reset aplikasi</h2><p>Hapus seluruh data anggota, iuran, dan akun non-developer. Akun developer tetap; pengeluaran, kelompok, kartu kas, audit log, skema, dan file Storage tidak dihapus.</p><button disabled={busy} className="danger-action" onClick={() => { setResetConfirmationText(""); setShowResetConfirmation(true); }}>RESET APLIKASI</button></section>}
+          </div>
+        )}
+        <div className="settings-note"><b>Format import anggota</b><span>Kolom wajib: Nama dan Kelompok. Jika satu anggota mengikuti beberapa kelompok, pisahkan nama kelompok dengan koma.</span></div>
+        {notice && <div className="toast" role="status">{notice}</div>}
+      </div>
+      {showResetConfirmation && isDeveloper && <div className="reset-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setShowResetConfirmation(false); }}>
+        <section className="reset-dialog" role="alertdialog" aria-modal="true" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-description">
+          <span className="settings-number">TINDAKAN TIDAK DAPAT DIBATALKAN</span>
+          <h2 id="reset-dialog-title">Konfirmasi reset aplikasi</h2>
+          <p id="reset-dialog-description">Data semua anggota (termasuk akun anggota yang terhubung), seluruh iuran, serta semua akun selain developer akan dihapus dari Supabase. Data pengeluaran, kelompok, kartu kas, audit log, struktur database, file Storage, dan semua akun developer tetap dipertahankan.</p>
+          <label htmlFor="reset-confirmation-input">Ketik <strong>RESET</strong> untuk melanjutkan.</label>
+          <input id="reset-confirmation-input" autoComplete="off" value={resetConfirmationText} onChange={(event) => setResetConfirmationText(event.target.value)} disabled={busy} />
+          <div className="reset-dialog-actions"><button type="button" className="cancel-action" disabled={busy} onClick={() => setShowResetConfirmation(false)}>Batal</button><button type="button" className="danger-action" disabled={busy || resetConfirmationText !== "RESET"} onClick={() => void resetApplicationData()}>{busy ? "Sedang mereset..." : "Hapus data dan akun"}</button></div>
+        </section>
+      </div>}
+    </main>
+  );
 }

@@ -17,6 +17,7 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     const refreshData = () => {
+      if (window.sessionStorage.getItem("kas-bendungan-reset-pending") === "true") return;
       if (refreshTimer) clearTimeout(refreshTimer);
       refreshTimer = setTimeout(() => window.location.reload(), 250);
     };
