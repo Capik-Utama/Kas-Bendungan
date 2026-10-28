@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/lib/auth";
+import { useAuth, type Role, roleLabel } from "@/lib/auth";
 import { maskAddress, maskFixed, maskName, maskPhone } from "@/lib/privacy";
 
 type Group = { id: number; nama: string };
@@ -17,17 +17,21 @@ type Warga = {
   nomor_telepon: string | null;
   alamat_rt: string | null;
   created_at: string;
+  role: Role;
   warga_kelompok?: { kelompok_id: number }[];
 };
 type Iuran = { id: number; warga_id: number | null; nominal: number | string | null; keterangan: string | null; kartu_id: number | null; bulan: string; tanggal_bayar: string; created_at: string };
+type LinkedMemberProfile = { warga_id: number | null; role: Role };
 const INITIAL_IURAN_NOTE = "Iuran awal";
+const MEMBER_ROLE_OPTIONS: Role[] = ["anggota", "bendahara", "ketua", "developer"];
 
 const money = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
 const formatAddedDate = (value: string) => new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZone: "Asia/Jakarta", timeZoneName: "short" }).format(new Date(value));
 
 export default function WargaPage() {
-  const { canEdit, user, isGuest, profile } = useAuth();
+  const { canEdit, user, isGuest, loading, profile } = useAuth();
   const isRestricted = isGuest || profile?.role === "anggota";
+  const allowedMemberRoles: Role[] = profile?.role === "developer" ? MEMBER_ROLE_OPTIONS : profile?.role === "ketua" ? ["anggota", "bendahara"] : ["anggota"];
   const searchParams = useSearchParams();
   const groupFilter = searchParams.get("kelompok");
   const [items, setItems] = useState<Warga[]>([]);
@@ -42,20 +46,25 @@ export default function WargaPage() {
   const [nikKtp, setNikKtp] = useState("");
   const [nomorTelepon, setNomorTelepon] = useState("");
   const [iuranAwal, setIuranAwal] = useState("");
+  const [accountRole, setAccountRole] = useState<Role>("anggota");
+  const [accountPassword, setAccountPassword] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<"nama" | "created_at" | "nomor_telepon" | "total_iuran" | "kelompok" | "nik_ktp" | "nik_kk">("created_at");
   const [sortAsc, setSortAsc] = useState(true);
   const [error, setError] = useState<string | null>(supabase ? null : "Supabase belum dikonfigurasi.");
   const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
+  const requiresAccountPassword = accountRole !== "anggota" && (!editing || accountRole !== editing.role);
 
-  const loadWarga = async () => {
+  const loadWarga = useCallback(async () => {
     if (!supabase) return;
-    const [{ data, error: loadError }, { data: iuranData, error: iuranError }] = await Promise.all([
+    const [{ data: wargaData, error: wargaError }, { data: iuranData, error: iuranError }] = await Promise.all([
       supabase.from("warga").select("id, nama, kelompok, nik_kk, nik_ktp, nomor_telepon, alamat_rt, created_at, warga_kelompok(kelompok_id)").order("nama", { ascending: true }),
       supabase.from("iuran").select("id, warga_id, nominal, keterangan, kartu_id, bulan, tanggal_bayar, created_at").order("created_at", { ascending: true }).order("id", { ascending: true }),
     ]);
-    if (loadError || iuranError) { setError(loadError?.message || iuranError?.message || "Data anggota belum bisa dibaca."); return; }
+    const { data: profileData, error: profileError } = canEdit ? await supabase.from("profiles").select("warga_id, role").not("warga_id", "is", null) : { data: null, error: null };
+    if (wargaError || iuranError || profileError) { setError(wargaError?.message || iuranError?.message || profileError?.message || "Data anggota belum bisa dibaca."); return; }
     const nextTotals: Record<number, number> = {};
     const nextInitialIurans: Record<number, Iuran> = {};
     for (const row of (iuranData as Iuran[] ?? [])) if (row.warga_id) {
@@ -63,12 +72,15 @@ export default function WargaPage() {
       const existingInitial = nextInitialIurans[row.warga_id];
       if (!existingInitial || (row.keterangan === INITIAL_IURAN_NOTE && existingInitial.keterangan !== INITIAL_IURAN_NOTE)) nextInitialIurans[row.warga_id] = row;
     }
+    const roleByWargaId: Record<number, Role> = {};
+    for (const linkedProfile of (profileData as LinkedMemberProfile[] | null) ?? []) if (linkedProfile.warga_id !== null) roleByWargaId[linkedProfile.warga_id] = linkedProfile.role;
     setTotals(nextTotals);
     setInitialIurans(nextInitialIurans);
-    setItems((data as Warga[]) ?? []);
-  };
+    const memberRows = (wargaData as Omit<Warga, "role">[] | null) ?? [];
+    setItems(memberRows.map((item) => ({ ...item, role: roleByWargaId[item.id] ?? "anggota" })));
+  }, [canEdit]);
 
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     if (!supabase) return;
     const [{ data: groupData, error: groupError }, { data: cardData, error: cardError }] = await Promise.all([
       supabase.from("kelompok").select("id, nama").order("nama"),
@@ -84,11 +96,15 @@ export default function WargaPage() {
     const { data: refreshedGroups, error: refreshError } = await supabase.from("kelompok").select("id, nama").order("nama");
     if (refreshError) { setError(refreshError.message); return; }
     setGroups((refreshedGroups as Group[]) ?? []);
-  };
+  }, [isRestricted]);
 
-  useEffect(() => { const timeout = setTimeout(() => { void loadWarga(); void loadGroups(); }, 0); return () => clearTimeout(timeout); }, []);
+  useEffect(() => {
+    if (loading) return;
+    const timeout = setTimeout(() => { void loadWarga(); void loadGroups(); }, 0);
+    return () => clearTimeout(timeout);
+  }, [loadGroups, loadWarga, loading]);
 
-  const resetForm = () => { setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setSelectedGroups([]); setEditing(null); setShowForm(false); };
+  const resetForm = () => { setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setAccountRole("anggota"); setAccountPassword(""); setSelectedGroups([]); setEditing(null); setShowForm(false); };
   const toggleGroup = (id: number) => setSelectedGroups((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const saveGroups = async (wargaId: number) => { if (!supabase) return null; const { error: deleteError } = await supabase.from("warga_kelompok").delete().eq("warga_id", wargaId); if (deleteError) return deleteError; const { error: insertError } = await supabase.from("warga_kelompok").insert(selectedGroups.map((kelompok_id) => ({ warga_id: wargaId, kelompok_id }))); return insertError; };
   const ensureMemberCards = async () => {
@@ -187,6 +203,8 @@ export default function WargaPage() {
     const submittedAmount = String(new FormData(event.currentTarget).get("iuranAwal") ?? "").trim();
     const initialAmount = submittedAmount ? Number(submittedAmount) : Number.NaN;
     if (!Number.isFinite(initialAmount) || initialAmount < 0) { setError("Nominal iuran awal harus berupa angka nol atau lebih."); return; }
+    if (!allowedMemberRoles.includes(accountRole) && (!editing || accountRole !== editing.role)) { setError("Anda tidak memiliki izin menetapkan role ini."); return; }
+    if (requiresAccountPassword && accountPassword.length < 8) { setError("Password baru akun pengelola wajib diisi minimal 8 karakter."); return; }
     isSavingRef.current = true;
     setIsSaving(true);
     try {
@@ -214,6 +232,33 @@ export default function WargaPage() {
       await ensureMemberCards();
       const iuranError = await saveInitialIuran(wargaId, initialAmount, kelompokUtama);
       if (iuranError) { setError(`Anggota tersimpan, tetapi iuran awal gagal disimpan: ${iuranError}`); await loadWarga(); return; }
+      if (accountRole !== (editing?.role ?? "anggota")) {
+        const { data: linkedProfile, error: profileLookupError } = await supabase.from("profiles").select("id, role").eq("warga_id", wargaId).limit(1).maybeSingle();
+        if (profileLookupError || !linkedProfile) {
+          setError(`Anggota dan iuran tersimpan, tetapi akun login tertaut tidak ditemukan: ${profileLookupError?.message || "profil tidak ditemukan"}.`);
+          resetForm();
+          await Promise.all([loadWarga(), loadGroups()]);
+          return;
+        }
+        if (requiresAccountPassword) {
+          const { error: passwordError } = await supabase.rpc("update_account_password", { p_user_id: linkedProfile.id, p_password: accountPassword });
+          if (passwordError) {
+            setError(`Anggota dan iuran tersimpan, tetapi password akun pengelola gagal diperbarui: ${passwordError.message}`);
+            resetForm();
+            await Promise.all([loadWarga(), loadGroups()]);
+            return;
+          }
+        }
+        if (linkedProfile.role !== accountRole) {
+          const { error: roleError } = await supabase.from("profiles").update({ role: accountRole }).eq("id", linkedProfile.id);
+          if (roleError) {
+            setError(`Anggota dan iuran tersimpan, tetapi role akun gagal diubah: ${roleError.message}`);
+            resetForm();
+            await Promise.all([loadWarga(), loadGroups()]);
+            return;
+          }
+        }
+      }
       resetForm();
       await Promise.all([loadWarga(), loadGroups()]);
       setNotice(initialAmount > 0 ? `Iuran awal ${money(initialAmount)} tersimpan dan masuk ke saldo kas.` : "Anggota tersimpan dengan iuran awal Rp0; saldo kas tidak bertambah.");
@@ -227,26 +272,39 @@ export default function WargaPage() {
   };
 
   const totalIuranSemuaAnggota = items.reduce((sum, item) => sum + (totals[item.id] ?? 0), 0);
-  const sortedItems = useMemo(() => [...(groupFilter ? items.filter((item) => (item.warga_kelompok || []).some((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama === groupFilter)) : items)].sort((a, b) => {
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase("id");
+    return items.filter((item) => {
+      const memberGroups = (item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter((name): name is string => Boolean(name));
+      if (groupFilter && !memberGroups.includes(groupFilter)) return false;
+      if (!query) return true;
+      const memberTotal = totals[item.id] ?? 0;
+      const searchableValues = [item.nama, item.kelompok, ...memberGroups, String(memberTotal), money(memberTotal), item.created_at ? formatAddedDate(item.created_at) : ""];
+      if (!isGuest) searchableValues.push(item.alamat_rt || "");
+      if (!isRestricted) searchableValues.push(item.nomor_telepon || "", item.nik_ktp || "", item.nik_kk || "");
+      return searchableValues.some((value) => value.toLocaleLowerCase("id").includes(query));
+    });
+  }, [groupFilter, groups, isGuest, isRestricted, items, searchQuery, totals]);
+  const sortedItems = useMemo(() => [...filteredItems].sort((a, b) => {
     const groupName = (item: Warga) => (item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "";
     const value = (item: Warga) => sortKey === "total_iuran" ? (totals[item.id] ?? 0) : sortKey === "kelompok" ? groupName(item) : String(item[sortKey] ?? "");
     const left = value(a); const right = value(b);
     const result = sortKey === "created_at" ? String(left).localeCompare(String(right)) : typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "id", { sensitivity: "base" });
     const stableResult = result || a.id - b.id;
     return sortAsc ? stableResult : -stableResult;
-  }), [groupFilter, groups, items, sortAsc, sortKey, totals]);
+  }), [filteredItems, groups, sortAsc, sortKey, totals]);
   const toggleSort = (key: typeof sortKey) => { if (sortKey === key) setSortAsc((value) => !value); else { setSortKey(key); setSortAsc(key === "nama" || key === "created_at"); } };
   const sortLabel = (key: typeof sortKey) => sortKey === key ? (sortAsc ? " ↑" : " ↓") : " ↕";
 
   const startAdd = () => {
     if (showForm && !editing) { setShowForm(false); return; }
-    setEditing(null); setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setSelectedGroups([]); setNotice(null); setShowForm(true);
+    setEditing(null); setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setAccountRole("anggota"); setAccountPassword(""); setSelectedGroups([]); setNotice(null); setShowForm(true);
   };
   const startEdit = (item: Warga) => {
     const memberGroups = (item.warga_kelompok || []).map((membership) => membership.kelompok_id);
     const primaryGroupId = groups.find((group) => group.nama === item.kelompok)?.id;
     const orderedGroups = primaryGroupId ? [primaryGroupId, ...memberGroups.filter((id) => id !== primaryGroupId)] : memberGroups;
-    setEditing(item); setNama(item.nama); setNikKk(item.nik_kk || ""); setNikKtp(item.nik_ktp || ""); setNomorTelepon(item.nomor_telepon || ""); setIuranAwal(String(initialIurans[item.id]?.nominal ?? 0)); setSelectedGroups(orderedGroups); setShowForm(true);
+    setEditing(item); setNama(item.nama); setNikKk(item.nik_kk || ""); setNikKtp(item.nik_ktp || ""); setNomorTelepon(item.nomor_telepon || ""); setIuranAwal(String(initialIurans[item.id]?.nominal ?? 0)); setAccountRole(item.role ?? "anggota"); setAccountPassword(""); setSelectedGroups(orderedGroups); setShowForm(true);
   };
   const groupChecklist = <fieldset className="grid gap-2 sm:grid-cols-3"><legend className="mb-1 text-sm font-medium text-zinc-700">Kelompok <span className="text-xs font-normal text-zinc-500">(pilih satu atau lebih)</span></legend>{groups.map((group) => <label key={group.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2"><input type="checkbox" checked={selectedGroups.includes(group.id)} onChange={() => toggleGroup(group.id)} /><span className="whitespace-nowrap">{group.nama}</span></label>)}</fieldset>;
 
@@ -254,6 +312,15 @@ export default function WargaPage() {
     {canEdit && showForm && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-3">
       <input required value={nama} onChange={(event) => setNama(event.target.value)} placeholder="Nama anggota *" className="rounded-lg border border-zinc-300 px-3 py-2" />
       {groupChecklist}
+      <div className="grid content-start gap-1">
+        <label htmlFor="member-account-role" className="text-sm font-medium text-zinc-700">Role akun</label>
+        <select id="member-account-role" value={accountRole} disabled={Boolean(editing && !allowedMemberRoles.includes(editing.role))} onChange={(event) => { const nextRole = event.target.value as Role; setAccountRole(nextRole); if (nextRole === "anggota") setAccountPassword(""); }} className="rounded-lg border border-zinc-300 px-3 py-2 disabled:bg-zinc-100">
+          {editing && !allowedMemberRoles.includes(accountRole) ? <option value={accountRole}>{roleLabel(accountRole)} (tidak dapat diubah)</option> : null}
+          {allowedMemberRoles.map((option) => <option key={option} value={option}>{roleLabel(option)}</option>)}
+        </select>
+        <p className="text-xs text-zinc-500">Default Anggota. Role yang tersedia mengikuti hak akses akun Anda.</p>
+      </div>
+      {requiresAccountPassword ? <label htmlFor="member-account-password" className="grid content-start gap-1 text-sm font-medium text-zinc-700">Password baru akun pengelola<input id="member-account-password" type="password" autoComplete="new-password" minLength={8} required value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} placeholder="Minimal 8 karakter" className="rounded-lg border border-zinc-300 px-3 py-2 font-normal" /><span className="text-xs font-normal text-zinc-500">Wajib saat akun diubah ke role selain Anggota.</span></label> : null}
       <div className="grid content-start gap-1">
         <label htmlFor="initial-dues" className="text-sm font-medium text-zinc-700">Iuran awal (Rp)</label>
         <input id="initial-dues" name="iuranAwal" type="number" min="0" step="1" inputMode="numeric" required value={iuranAwal} onChange={(event) => setIuranAwal(event.target.value)} placeholder="Masukkan nominal (0 jika tidak ada)" className="rounded-lg border border-zinc-300 px-3 py-2" />
@@ -266,6 +333,7 @@ export default function WargaPage() {
     </form>}
     {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
     {notice ? <p role="status" className="text-sm text-emerald-700">{notice}</p> : null}
+    <input type="search" aria-label="Cari anggota" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={isGuest ? "Cari nama atau kelompok anggota..." : isRestricted ? "Cari nama, kelompok, iuran, tanggal, atau alamat..." : "Cari nama, kelompok, iuran, tanggal, No. HP, NIK, atau alamat..."} className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-md" />
     <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
       <table className="min-w-[1380px] text-left text-sm">
         <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
@@ -292,7 +360,7 @@ export default function WargaPage() {
               <td className="whitespace-nowrap px-4 py-3"><div className="flex gap-2">{canEdit && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canEdit && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td>
             </tr>
           ))}
-          {sortedItems.length === 0 ? <tr><td colSpan={10} className="px-4 py-6 text-center text-zinc-500">Belum ada data anggota{groupFilter ? ` di ${groupFilter}` : ""}.</td></tr> : null}
+          {sortedItems.length === 0 ? <tr><td colSpan={10} className="px-4 py-6 text-center text-zinc-500">{searchQuery.trim() ? "Tidak ada anggota yang cocok dengan pencarian." : `Belum ada data anggota${groupFilter ? ` di ${groupFilter}` : ""}.`}</td></tr> : null}
         </tbody>
       </table>
     </div>
