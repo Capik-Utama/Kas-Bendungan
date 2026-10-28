@@ -270,8 +270,9 @@ export default function WargaPage() {
         <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
           <tr>
             <th className="whitespace-nowrap px-4 py-3">No</th>
-            {([ ["nama", "Nama"], ["nomor_telepon", "No. HP"], ["total_iuran", "Total Iuran"], ["kelompok", "Kelompok"], ["created_at", "Tanggal Gabung"], ["nik_ktp", "NIK KTP"], ["nik_kk", "NIK KK"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
+            {([ ["nama", "Nama"], ["total_iuran", "Total Iuran"], ["kelompok", "Kelompok"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
             <th className="whitespace-nowrap px-4 py-3">Alamat</th>
+            {([ ["nik_ktp", "NIK KTP"], ["nik_kk", "NIK KK"], ["nomor_telepon", "No. HP"], ["created_at", "Tanggal Gabung"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
             <th className="whitespace-nowrap px-4 py-3">Aksi</th>
           </tr>
         </thead>
@@ -280,13 +281,13 @@ export default function WargaPage() {
             <tr key={item.id} className="border-t border-zinc-200 align-top">
               <td className="whitespace-nowrap px-4 py-3">{index + 1}</td>
               <td className="whitespace-nowrap px-4 py-3 font-medium">{isGuest ? maskName(item.nama) : item.nama}</td>
-              <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskPhone(item.nomor_telepon) : (item.nomor_telepon || "-")}</td>
               <td className="whitespace-nowrap px-4 py-3">{money(totals[item.id] ?? 0)}</td>
               <td className="whitespace-nowrap px-4 py-3">{(item.warga_kelompok || []).map((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama).filter(Boolean).join(", ") || item.kelompok || "-"}</td>
-              <td className="whitespace-nowrap px-4 py-3">{item.created_at ? formatAddedDate(item.created_at) : "-"}</td>
+              <td className="px-4 py-3">{isGuest ? maskAddress(item.alamat_rt) : (item.alamat_rt || "-")}</td>
               <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskFixed(item.nik_ktp, 6) : (item.nik_ktp || "-")}</td>
               <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskFixed(item.nik_kk, 6) : (item.nik_kk || "-")}</td>
-              <td className="px-4 py-3">{isGuest ? maskAddress(item.alamat_rt) : (item.alamat_rt || "-")}</td>
+              <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskPhone(item.nomor_telepon) : (item.nomor_telepon || "-")}</td>
+              <td className="whitespace-nowrap px-4 py-3">{item.created_at ? formatAddedDate(item.created_at) : "-"}</td>
               <td className="whitespace-nowrap px-4 py-3"><div className="flex gap-2">{canEdit && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canEdit && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td>
             </tr>
           ))}
