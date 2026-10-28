@@ -16,10 +16,18 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
   useEffect(() => { window.localStorage.setItem("kas-bendungan-theme", theme); }, [theme]);
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const shouldDeferRefresh = () => window.sessionStorage.getItem("kas-bendungan-reset-pending") === "true" || window.sessionStorage.getItem("kas-bendungan-member-save-pending") === "true";
     const refreshData = () => {
-      if (window.sessionStorage.getItem("kas-bendungan-reset-pending") === "true") return;
+      if (shouldDeferRefresh()) {
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = undefined;
+        return;
+      }
       if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => window.location.reload(), 250);
+      refreshTimer = setTimeout(() => {
+        refreshTimer = undefined;
+        if (!shouldDeferRefresh()) window.location.reload();
+      }, 250);
     };
     window.addEventListener("kas-bendungan:data-changed", refreshData);
     return () => { if (refreshTimer) clearTimeout(refreshTimer); window.removeEventListener("kas-bendungan:data-changed", refreshData); };

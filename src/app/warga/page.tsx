@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -44,6 +44,8 @@ export default function WargaPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [error, setError] = useState<string | null>(supabase ? null : "Supabase belum dikonfigurasi.");
   const [notice, setNotice] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   const loadWarga = async () => {
     if (!supabase) return;
@@ -179,26 +181,47 @@ export default function WargaPage() {
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); if (!supabase) return; setError(null); setNotice(null); if (!nama.trim() || !selectedGroups.length) { setError("Nama anggota dan minimal satu kelompok wajib diisi."); return; }
+    event.preventDefault(); if (!supabase || isSavingRef.current) return; setError(null); setNotice(null); if (!nama.trim() || !selectedGroups.length) { setError("Nama anggota dan minimal satu kelompok wajib diisi."); return; }
     const submittedAmount = String(new FormData(event.currentTarget).get("iuranAwal") ?? "").trim();
     const initialAmount = submittedAmount ? Number(submittedAmount) : Number.NaN;
     if (!Number.isFinite(initialAmount) || initialAmount < 0) { setError("Nominal iuran awal harus berupa angka nol atau lebih."); return; }
-    if (!editing) {
-      const password = window.prompt("Masukkan password login untuk mengonfirmasi penambahan anggota:");
-      if (!password || !user?.email) { setError("Sesi login tidak tersedia."); return; }
-      const { error: authError } = await supabase.auth.signInWithPassword({ email: user.email, password });
-      if (authError) { setError("Password salah. Anggota tidak ditambahkan."); return; }
+    isSavingRef.current = true;
+    setIsSaving(true);
+    try {
+      window.sessionStorage.setItem("kas-bendungan-member-save-pending", "true");
+      if (!editing) {
+        const password = window.prompt("Masukkan password login untuk mengonfirmasi penambahan anggota:");
+        if (!password || !user?.email) { setError("Sesi login tidak tersedia."); return; }
+        const { error: authError } = await supabase.auth.signInWithPassword({ email: user.email, password });
+        if (authError) { setError("Password salah. Anggota tidak ditambahkan."); return; }
+      }
+      const kelompokUtama = groups.find((group) => group.id === selectedGroups[0])?.nama || "";
+      const payload = { nama: nama.trim(), kelompok: kelompokUtama, nik_kk: nikKk.trim() || null, nik_ktp: nikKtp.trim() || null, nomor_telepon: nomorTelepon.trim() || null };
+      let wargaId: number;
+      if (editing) {
+        const { error: updateError } = await supabase.from("warga").update(payload).eq("id", editing.id);
+        if (updateError) { setError(updateError.message); return; }
+        wargaId = editing.id;
+      } else {
+        const { data, error: insertError } = await supabase.from("warga").insert(payload).select("id").single();
+        if (insertError || !data) { setError(insertError?.message || "Gagal menyimpan anggota."); return; }
+        wargaId = Number(data.id);
+      }
+      const groupError = await saveGroups(wargaId);
+      if (groupError) { setError(groupError.message); return; }
+      await ensureMemberCards();
+      const iuranError = await saveInitialIuran(wargaId, initialAmount, kelompokUtama);
+      if (iuranError) { setError(`Anggota tersimpan, tetapi iuran awal gagal disimpan: ${iuranError}`); await loadWarga(); return; }
+      resetForm();
+      await Promise.all([loadWarga(), loadGroups()]);
+      setNotice(initialAmount > 0 ? `Iuran awal ${money(initialAmount)} tersimpan dan masuk ke saldo kas.` : "Anggota tersimpan dengan iuran awal Rp0; saldo kas tidak bertambah.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Terjadi kesalahan saat menyimpan anggota dan iuran.");
+    } finally {
+      try { window.sessionStorage.removeItem("kas-bendungan-member-save-pending"); } catch {}
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
-    const kelompokUtama = groups.find((group) => group.id === selectedGroups[0])?.nama || "";
-    const payload = { nama: nama.trim(), kelompok: kelompokUtama, nik_kk: nikKk.trim() || null, nik_ktp: nikKtp.trim() || null, nomor_telepon: nomorTelepon.trim() || null };
-    let wargaId: number;
-    if (editing) { const { error: updateError } = await supabase.from("warga").update(payload).eq("id", editing.id); if (updateError) { setError(updateError.message); return; } wargaId = editing.id; } else { const { data, error: insertError } = await supabase.from("warga").insert(payload).select("id").single(); if (insertError || !data) { setError(insertError?.message || "Gagal menyimpan anggota."); return; } wargaId = data.id as number; }
-    const groupError = await saveGroups(wargaId); if (groupError) { setError(groupError.message); return; }
-    await ensureMemberCards();
-    const iuranError = await saveInitialIuran(wargaId, initialAmount, kelompokUtama);
-    if (iuranError) { setError(`Anggota tersimpan, tetapi iuran awal gagal disimpan: ${iuranError}`); await loadWarga(); return; }
-    resetForm(); await loadWarga();
-    setNotice(initialAmount > 0 ? `Iuran awal ${money(initialAmount)} tersimpan dan masuk ke saldo kas.` : "Anggota tersimpan dengan iuran awal Rp0; saldo kas tidak bertambah.");
   };
 
   const sortedItems = useMemo(() => [...(groupFilter ? items.filter((item) => (item.warga_kelompok || []).some((membership) => groups.find((group) => group.id === membership.kelompok_id)?.nama === groupFilter)) : items)].sort((a, b) => {
@@ -235,7 +258,7 @@ export default function WargaPage() {
       <input value={nomorTelepon} onChange={(event) => setNomorTelepon(event.target.value)} placeholder="No. HP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" />
       <input value={nikKtp} onChange={(event) => setNikKtp(event.target.value)} placeholder="NIK KTP (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" />
       <input value={nikKk} onChange={(event) => setNikKk(event.target.value)} placeholder="NIK KK (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" />
-      <div className="flex gap-2"><button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700" type="submit">{editing ? "Simpan Perubahan" : "Simpan Anggota"}</button>{editing && <button className="rounded-lg border border-zinc-300 px-3 py-2" type="button" onClick={resetForm}>Batal</button>}</div>
+      <div className="flex gap-2"><button disabled={isSaving} className={`rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60`} type="submit">{isSaving ? "Menyimpan..." : editing ? "Simpan Perubahan" : "Simpan Anggota"}</button>{editing && <button disabled={isSaving} className="rounded-lg border border-zinc-300 px-3 py-2 disabled:opacity-60" type="button" onClick={resetForm}>Batal</button>}</div>
     </form>}
     {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
     {notice ? <p role="status" className="text-sm text-emerald-700">{notice}</p> : null}
