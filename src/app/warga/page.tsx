@@ -43,7 +43,7 @@ export default function WargaPage() {
   const [nomorTelepon, setNomorTelepon] = useState("");
   const [iuranAwal, setIuranAwal] = useState("");
   const [sortKey, setSortKey] = useState<"nama" | "created_at" | "nomor_telepon" | "total_iuran" | "kelompok" | "nik_ktp" | "nik_kk">("created_at");
-  const [sortAsc, setSortAsc] = useState(false);
+  const [sortAsc, setSortAsc] = useState(true);
   const [error, setError] = useState<string | null>(supabase ? null : "Supabase belum dikonfigurasi.");
   const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -234,7 +234,7 @@ export default function WargaPage() {
     const stableResult = result || a.id - b.id;
     return sortAsc ? stableResult : -stableResult;
   }), [groupFilter, groups, items, sortAsc, sortKey, totals]);
-  const toggleSort = (key: typeof sortKey) => { if (sortKey === key) setSortAsc((value) => !value); else { setSortKey(key); setSortAsc(key === "nama"); } };
+  const toggleSort = (key: typeof sortKey) => { if (sortKey === key) setSortAsc((value) => !value); else { setSortKey(key); setSortAsc(key === "nama" || key === "created_at"); } };
   const sortLabel = (key: typeof sortKey) => sortKey === key ? (sortAsc ? " ↑" : " ↓") : " ↕";
 
   const startAdd = () => {
