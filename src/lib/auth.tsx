@@ -27,7 +27,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const guestProfile: AppProfile = { id: "guest", username: "Tamu", display_name: "Tamu", role: "anggota", nik_ktp: null, nik_kk: null, nomor_hp: null };
 
-function usernameToEmail(username: string) { return `${username.trim().toLowerCase()}@kas-bendungan.id`; }
+function usernameToEmail(username: string) { return `${username.trim().toLowerCase().replace(/\s+/g, ".")}@kas-bendungan.id`; }
 async function logActivity(category: string, action: string, description: string) {
   if (!supabase) return;
   const { data: sessionData } = await supabase.auth.getSession();

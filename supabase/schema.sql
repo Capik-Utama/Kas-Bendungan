@@ -131,21 +131,48 @@ create policy "authenticated read profile kelompok" on public.profile_kelompok f
 drop policy if exists "staff manage profile kelompok" on public.profile_kelompok;
 create policy "staff manage profile kelompok" on public.profile_kelompok for all to authenticated using (public.is_staff()) with check (public.is_staff());
 
-create or replace function public.create_account(p_username text, p_display_name text, p_password text, p_role public.app_role)
+create or replace function public.create_account(p_username text, p_display_name text, p_password text, p_role public.app_role, p_nik_ktp text default null, p_nik_kk text default null, p_nomor_hp text default null)
 returns uuid language plpgsql security definer set search_path = public, auth, extensions as $$
-declare new_id uuid; normalized text := lower(trim(p_username));
+declare
+  new_id uuid;
+  requested_username text := trim(coalesce(p_username, ''));
+  assigned_username text;
+  email_local text;
+  duplicate_count integer := 0;
+  clean_nik_ktp text := nullif(trim(coalesce(p_nik_ktp, '')), '');
+  clean_nik_kk text := nullif(trim(coalesce(p_nik_kk, '')), '');
+  clean_nomor_hp text := nullif(trim(coalesce(p_nomor_hp, '')), '');
 begin
   if public.current_user_role() not in ('developer', 'ketua', 'bendahara') then raise exception 'Hanya pengelola akun yang dapat membuat akun'; end if;
   if public.current_user_role() = 'bendahara' and p_role <> 'anggota' then raise exception 'Bendahara hanya dapat membuat akun anggota'; end if;
   if public.current_user_role() = 'ketua' and p_role = 'developer' then raise exception 'Ketua hanya dapat membuat akun bendahara atau anggota'; end if;
-  if normalized = '' or (length(p_password) < 8 and not (p_role = 'anggota' and p_password = '1234')) or trim(p_display_name) = '' then raise exception 'Data akun tidak valid'; end if;
-  if exists (select 1 from public.profiles where lower(username) = normalized) or exists (select 1 from auth.users where lower(email) = normalized || '@kas-bendungan.id') then raise exception 'Username sudah digunakan'; end if;
+  if requested_username = '' or (length(p_password) < 8 and not (p_role = 'anggota' and p_password = '1234')) or trim(coalesce(p_display_name, '')) = '' then raise exception 'Data akun tidak valid'; end if;
+  if clean_nik_ktp is not null and clean_nik_ktp !~ '^[0-9]{16}$' then raise exception 'NIK KTP harus berupa 16 digit'; end if;
+  if clean_nik_kk is not null and clean_nik_kk !~ '^[0-9]{16}$' then raise exception 'NIK KK harus berupa 16 digit'; end if;
+  if clean_nomor_hp is not null and clean_nomor_hp !~ '^[0-9+() .-]{8,20}$' then raise exception 'Nomor HP tidak valid'; end if;
+  select count(*) into duplicate_count from public.profiles p where lower(regexp_replace(trim(p.display_name), '\s+', '.', 'g')) = lower(regexp_replace(requested_username, '\s+', '.', 'g'));
+  assigned_username := requested_username;
+  if duplicate_count > 0 then assigned_username := requested_username || ' ' || (duplicate_count + 1)::text; end if;
+  email_local := lower(regexp_replace(trim(assigned_username), '\s+', '.', 'g'));
+  while exists (select 1 from public.profiles p where lower(p.username) = lower(assigned_username)) or exists (select 1 from auth.users u where lower(u.email) = email_local || '@kas-bendungan.id') loop
+    duplicate_count := duplicate_count + 1;
+    assigned_username := requested_username || ' ' || (duplicate_count + 1)::text;
+    email_local := lower(regexp_replace(trim(assigned_username), '\s+', '.', 'g'));
+  end loop;
   new_id := gen_random_uuid();
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, confirmation_token, recovery_token, email_change, email_change_token_new, email_change_token_current, phone, phone_change, phone_change_token, reauthentication_token, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
-  values ('00000000-0000-0000-0000-000000000000', new_id, 'authenticated', 'authenticated', normalized || '@kas-bendungan.id', crypt(p_password, gen_salt('bf')), now(), '', '', '', '', '', null, '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('username', trim(p_username), 'display_name', trim(p_display_name)), now(), now());
-  insert into auth.identities (provider_id, user_id, identity_data, provider, created_at, updated_at) values (new_id::text, new_id, jsonb_build_object('sub', new_id::text, 'email', normalized || '@kas-bendungan.id'), 'email', now(), now());
-  insert into public.profiles (id, username, display_name, role) values (new_id, trim(p_username), trim(p_display_name), p_role);
+  values ('00000000-0000-0000-0000-000000000000', new_id, 'authenticated', 'authenticated', email_local || '@kas-bendungan.id', crypt(p_password, gen_salt('bf')), now(), '', '', '', '', '', null, '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('username', assigned_username, 'display_name', trim(p_display_name)), now(), now());
+  insert into auth.identities (provider_id, user_id, identity_data, provider, created_at, updated_at) values (new_id::text, new_id, jsonb_build_object('sub', new_id::text, 'email', email_local || '@kas-bendungan.id'), 'email', now(), now());
+  insert into public.profiles (id, username, display_name, role, nik_ktp, nik_kk, nomor_hp) values (new_id, assigned_username, trim(p_display_name), p_role, clean_nik_ktp, clean_nik_kk, clean_nomor_hp);
   return new_id;
+end; $$;
+revoke all on function public.create_account(text,text,text,public.app_role,text,text,text) from public;
+grant execute on function public.create_account(text,text,text,public.app_role,text,text,text) to authenticated;
+
+create or replace function public.create_account(p_username text, p_display_name text, p_password text, p_role public.app_role)
+returns uuid language plpgsql security definer set search_path = public, auth, extensions as $$
+begin
+  return public.create_account(p_username, p_display_name, p_password, p_role, null, null, null);
 end; $$;
 revoke all on function public.create_account(text,text,text,public.app_role) from public;
 grant execute on function public.create_account(text,text,text,public.app_role) to authenticated;
