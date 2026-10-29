@@ -11,15 +11,23 @@ function formatTanggal(value: string) {
   return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T00:00:00`));
 }
 
+type ExpensePurpose = "Ke kelompok lain" | "Ke petugas lain" | "Kebutuhan kelompok";
 type PengeluaranItem = {
   id: number;
   tanggal: string;
   keperluan: string;
+  jenis_keperluan: ExpensePurpose;
   nominal: number;
   keterangan: string;
   kartu_id?: number | null;
+  tujuan_kelompok_id?: number | null;
+  tujuan_petugas_id?: string | null;
+  tujuanKelompok?: { nama: string } | { nama: string }[] | null;
+  tujuanPetugas?: { username: string } | { username: string }[] | null;
 };
 type GroupCard = { id: number; nama: string };
+type GroupOption = { id: number; nama: string };
+type Officer = { id: string; username: string; role: string };
 
 export default function PengeluaranPage() {
   const { canEdit, profile } = useAuth();
@@ -27,10 +35,15 @@ export default function PengeluaranPage() {
   const scopedKartuId = Number(searchParams.get("kartu_id") || 0);
   const [items, setItems] = useState<PengeluaranItem[]>([]);
   const [tanggal, setTanggal] = useState("");
+  const [jenisKeperluan, setJenisKeperluan] = useState<ExpensePurpose>("Kebutuhan kelompok");
+  const [tujuanKelompokId, setTujuanKelompokId] = useState("");
+  const [tujuanPetugasId, setTujuanPetugasId] = useState("");
   const [keperluan, setKeperluan] = useState("");
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [groupCards, setGroupCards] = useState<GroupCard[]>([]);
+  const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [officers, setOfficers] = useState<Officer[]>([]);
   const [kartuId, setKartuId] = useState(scopedKartuId ? String(scopedKartuId) : "");
   const [sortKey, setSortKey] = useState<"tanggal" | "nominal" | "keterangan">("tanggal");
   const [sortAsc, setSortAsc] = useState(false);
@@ -43,18 +56,22 @@ export default function PengeluaranPage() {
   const loadData = async () => {
     if (!supabase) return;
 
-    const [{ data, error: loadError }, cardsResult] = await Promise.all([
-      supabase.from("pengeluaran").select("id, tanggal, keperluan, nominal, keterangan, kartu_id").order("tanggal", { ascending: false }),
+    const [{ data, error: loadError }, cardsResult, groupsResult, officersResult] = await Promise.all([
+      supabase.from("pengeluaran").select("id, tanggal, keperluan, jenis_keperluan, nominal, keterangan, kartu_id, tujuan_kelompok_id, tujuan_petugas_id, tujuanKelompok:tujuan_kelompok_id(nama), tujuanPetugas:tujuan_petugas_id(username)").order("tanggal", { ascending: false }),
       supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
+      supabase.from("kelompok").select("id, nama").order("nama"),
+      supabase.from("profiles").select("id, username, role").in("role", ["developer", "ketua", "bendahara"]).order("username"),
     ]);
 
-    if (loadError || cardsResult.error) {
-      setError(loadError?.message ?? cardsResult.error?.message ?? "Gagal memuat data pengeluaran");
+    if (loadError || cardsResult.error || groupsResult.error || officersResult.error) {
+      setError(loadError?.message ?? cardsResult.error?.message ?? groupsResult.error?.message ?? officersResult.error?.message ?? "Gagal memuat data pengeluaran");
       return;
     }
 
     setItems(((data as PengeluaranItem[]) ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId));
     setGroupCards(scopedKartuId ? ((cardsResult.data as GroupCard[]) ?? []).filter((card) => card.id === scopedKartuId) : (cardsResult.data as GroupCard[]) ?? []);
+    setGroups((groupsResult.data as GroupOption[]) ?? []);
+    setOfficers((officersResult.data as Officer[]) ?? []);
     setError(null);
   };
 
@@ -77,6 +94,9 @@ export default function PengeluaranPage() {
   const resetForm = () => {
     setEditing(null);
     setTanggal("");
+    setJenisKeperluan("Kebutuhan kelompok");
+    setTujuanKelompokId("");
+    setTujuanPetugasId("");
     setKeperluan("");
     setNominal("");
     setKeterangan("");
@@ -90,11 +110,16 @@ export default function PengeluaranPage() {
       return;
     }
 
-    if (!kartuId) { setError("Pilih kelompok tujuan transaksi."); return; }
+    if (!kartuId) { setError("Pilih kelompok sumber transaksi."); return; }
+    if (jenisKeperluan === "Ke kelompok lain" && !tujuanKelompokId) { setError("Pilih kelompok tujuan."); return; }
+    if (jenisKeperluan === "Ke petugas lain" && !tujuanPetugasId) { setError("Pilih petugas tujuan."); return; }
 
     const payload = {
       tanggal,
-      keperluan,
+      keperluan: keperluan.trim() || jenisKeperluan,
+      jenis_keperluan: jenisKeperluan,
+      tujuan_kelompok_id: jenisKeperluan === "Ke kelompok lain" ? Number(tujuanKelompokId) : null,
+      tujuan_petugas_id: jenisKeperluan === "Ke petugas lain" ? tujuanPetugasId : null,
       nominal: Number(nominal),
       keterangan,
       kartu_id: Number(kartuId),
@@ -123,36 +148,14 @@ export default function PengeluaranPage() {
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">Pencatatan Pengeluaran Kas</h1><p className="text-sm text-zinc-600">Kelola seluruh pengeluaran kas berdasarkan kelompok.</p></div>{canEdit && <button type="button" onClick={() => setShowForm((current) => !current)} className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-[.98]">{showForm ? "Tutup Form" : "+ Tambah Pengeluaran"}</button>}</div>
 
       {canEdit && showForm && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-4">
-        <select required value={kartuId} onChange={(event) => setKartuId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok tujuan</option>{groupCards.map((card) => <option key={card.id} value={card.id}>{card.nama}</option>)}</select>
-        <input
-          required
-          type="date"
-          value={tanggal}
-          onChange={(event) => setTanggal(event.target.value)}
-          className="rounded-lg border border-zinc-300 px-3 py-2"
-        />
-        <input
-          required
-          value={keperluan}
-          onChange={(event) => setKeperluan(event.target.value)}
-          placeholder="Keperluan kampung"
-          className="rounded-lg border border-zinc-300 px-3 py-2"
-        />
-        <input
-          required
-          type="number"
-          min={0}
-          value={nominal}
-          onChange={(event) => setNominal(event.target.value)}
-          placeholder="Nominal"
-          className="rounded-lg border border-zinc-300 px-3 py-2"
-        />
-        <input
-          value={keterangan}
-          onChange={(event) => setKeterangan(event.target.value)}
-          placeholder="Keterangan"
-          className="rounded-lg border border-zinc-300 px-3 py-2"
-        />
+        <input required type="date" value={tanggal} onChange={(event) => setTanggal(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2" />
+        <select required value={jenisKeperluan} onChange={(event) => { const next = event.target.value as ExpensePurpose; setJenisKeperluan(next); setTujuanKelompokId(""); setTujuanPetugasId(""); }} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="Ke kelompok lain">Ke kelompok lain</option><option value="Ke petugas lain">Ke petugas lain</option><option value="Kebutuhan kelompok">Kebutuhan kelompok</option></select>
+        {jenisKeperluan === "Ke kelompok lain" && <><select required value={tujuanKelompokId} onChange={(event) => setTujuanKelompokId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok tujuan</option>{groups.filter((group) => group.nama !== groupCards.find((card) => card.id === Number(kartuId))?.nama).map((group) => <option key={group.id} value={group.id}>{group.nama}</option>)}</select><select required value={tujuanPetugasId} onChange={(event) => setTujuanPetugasId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih petugas tujuan</option>{officers.map((officer) => <option key={officer.id} value={officer.id}>{officer.username}</option>)}</select></>}
+        {jenisKeperluan === "Ke petugas lain" && <select required value={tujuanPetugasId} onChange={(event) => setTujuanPetugasId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih petugas tujuan</option>{officers.filter((officer) => officer.id !== profile?.id).map((officer) => <option key={officer.id} value={officer.id}>{officer.username}</option>)}</select>}
+        <select required value={kartuId} onChange={(event) => setKartuId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok sumber</option>{groupCards.map((card) => <option key={card.id} value={card.id}>{card.nama}</option>)}</select>
+        <input value={keperluan} onChange={(event) => setKeperluan(event.target.value)} placeholder="Detail keperluan (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" />
+        <input value={keterangan} onChange={(event) => setKeterangan(event.target.value)} placeholder="Keterangan" className="rounded-lg border border-zinc-300 px-3 py-2" />
+        <input required type="number" min={0} value={nominal} onChange={(event) => setNominal(event.target.value)} placeholder="Nominal" className="rounded-lg border border-zinc-300 px-3 py-2" />
         <button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700 md:col-span-4" type="submit">
           {editing ? "Simpan Perubahan" : "Simpan Pengeluaran"}
         </button>
@@ -176,7 +179,7 @@ export default function PengeluaranPage() {
                 <td className="whitespace-nowrap px-4 py-3">{formatTanggal(item.tanggal)}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
                 <td className="px-4 py-3">{item.keterangan || item.keperluan || "-"}</td>
-                {canEdit && <td className="whitespace-nowrap px-4 py-3"><button type="button" className="mr-3 font-medium text-emerald-700 hover:underline" onClick={() => { setEditing(item); setTanggal(item.tanggal); setKeperluan(item.keperluan); setNominal(String(item.nominal)); setKeterangan(item.keterangan ?? ""); setKartuId(String((item as PengeluaranItem & {kartu_id?: number}).kartu_id ?? "")); setShowForm(true); setError(null); }}>Edit</button><button type="button" className="font-medium text-red-700 hover:underline" onClick={async () => { if (!window.confirm("Hapus catatan pengeluaran ini? Tindakan ini tidak dapat dibatalkan.")) return; const { error: deleteError } = await supabase!.from("pengeluaran").delete().eq("id", item.id); if (deleteError) setError(deleteError.message); else { if (editing?.id === item.id) resetForm(); await loadData(); } }}>Hapus</button></td>}
+                {canEdit && <td className="whitespace-nowrap px-4 py-3"><button type="button" className="mr-3 font-medium text-emerald-700 hover:underline" onClick={() => { setEditing(item); setTanggal(item.tanggal); setJenisKeperluan(item.jenis_keperluan || "Kebutuhan kelompok"); setTujuanKelompokId(String(item.tujuan_kelompok_id ?? "")); setTujuanPetugasId(item.tujuan_petugas_id ?? ""); setKeperluan(item.keperluan); setNominal(String(item.nominal)); setKeterangan(item.keterangan ?? ""); setKartuId(String((item as PengeluaranItem & {kartu_id?: number}).kartu_id ?? "")); setShowForm(true); setError(null); }}>Edit</button><button type="button" className="font-medium text-red-700 hover:underline" onClick={async () => { if (!window.confirm("Hapus catatan pengeluaran ini? Tindakan ini tidak dapat dibatalkan.")) return; const { error: deleteError } = await supabase!.from("pengeluaran").delete().eq("id", item.id); if (deleteError) setError(deleteError.message); else { if (editing?.id === item.id) resetForm(); await loadData(); } }}>Hapus</button></td>}
               </tr>
             ))}
             {items.length === 0 ? (

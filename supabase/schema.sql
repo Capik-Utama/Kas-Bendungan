@@ -49,6 +49,9 @@ alter table public.iuran add column if not exists kartu_id bigint references pub
 alter table public.pengeluaran add column if not exists kartu_id bigint references public.kartu_kas(id) on delete set null;
 alter table public.iuran add column if not exists petugas_id uuid references public.profiles(id) on delete set null default auth.uid();
 alter table public.pengeluaran add column if not exists petugas_id uuid references public.profiles(id) on delete set null default auth.uid();
+alter table public.pengeluaran add column if not exists jenis_keperluan text not null default 'Kebutuhan kelompok';
+alter table public.pengeluaran add column if not exists tujuan_kelompok_id bigint references public.kelompok(id) on delete set null;
+alter table public.pengeluaran add column if not exists tujuan_petugas_id uuid references public.profiles(id) on delete set null;
 alter table public.audit_logs enable row level security;
 drop policy if exists "staff read audit logs" on public.audit_logs;
 create policy "staff read audit logs" on public.audit_logs for select to authenticated using (public.current_user_role() in ('developer','ketua','bendahara') and (public.current_user_role() = 'developer' or not exists (select 1 from public.profiles where id = audit_logs.actor_id and role = 'developer')));
