@@ -111,6 +111,15 @@ export default function IuranPage() {
   }), [items, sortKey, sortAsc]);
   const toggleSort = (key: typeof sortKey) => { if (sortKey === key) setSortAsc((value) => !value); else { setSortKey(key); setSortAsc(false); } };
   const sortLabel = (key: typeof sortKey) => sortKey === key ? (sortAsc ? " ↑" : " ↓") : " ↕";
+  const resetForm = () => {
+    setEditing(null);
+    setTanggalBayar("");
+    setWargaId("");
+    setBulan("");
+    setNominal("");
+    setKeterangan("");
+    setKartuId(scopedKartuId ? String(scopedKartuId) : "");
+  };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -149,14 +158,8 @@ export default function IuranPage() {
       if (!existing?.length) await supabase.from("kartu_kas").insert({ parent_id: Number(kartuId), kategori: "Pemasukan", nama: "Pemasukan", catatan: "Pemasukan dari transaksi warga", nominal: 0, ikon: "↗" });
     }
 
-    setEditing(null);
+    resetForm();
     setShowForm(false);
-    setTanggalBayar("");
-    setWargaId("");
-    setBulan("");
-    setNominal("");
-    setKeterangan("");
-    setKartuId("");
     await loadData();
   };
 
@@ -205,6 +208,7 @@ export default function IuranPage() {
         <button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700 md:col-span-4" type="submit">
           {editing ? "Simpan Perubahan" : "Simpan Pembayaran Iuran"}
         </button>
+        {editing && <button type="button" className="rounded-lg border border-zinc-300 px-3 py-2 font-medium text-zinc-700 hover:bg-zinc-50 md:col-span-4" onClick={() => { resetForm(); setShowForm(false); setError(null); }}>Batal Edit</button>}
       </form>}
 
       {!canEdit && <p className="read-only-note">Mode lihat saja: akun anggota tidak dapat menambah data.</p>}
@@ -225,7 +229,7 @@ export default function IuranPage() {
                 <td className="whitespace-nowrap px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatTanggal(item.tanggal_bayar)}</td>
                 <td className="px-4 py-3">{item.keterangan || item.bulan || "-"}</td>
-                {canEdit && <td className="whitespace-nowrap px-4 py-3"><button type="button" className="mr-3 font-medium text-emerald-700 hover:underline" onClick={() => { setEditing(item); setWargaId(item.warga_id ? String(item.warga_id) : ""); setKartuId(item.kartu_id ? String(item.kartu_id) : ""); setBulan(item.bulan); setTanggalBayar(item.tanggal_bayar); setNominal(String(item.nominal)); setKeterangan(item.keterangan ?? ""); setShowForm(true); setError(null); }}>Edit</button><button type="button" className="font-medium text-red-700 hover:underline" onClick={async () => { if (!window.confirm("Hapus catatan pemasukan ini? Tindakan ini tidak dapat dibatalkan.")) return; const { error: deleteError } = await supabase!.from("iuran").delete().eq("id", item.id); if (deleteError) setError(deleteError.message); else await loadData(); }}>Hapus</button></td>}
+                {canEdit && <td className="whitespace-nowrap px-4 py-3"><button type="button" className="mr-3 font-medium text-emerald-700 hover:underline" onClick={() => { setEditing(item); setWargaId(item.warga_id ? String(item.warga_id) : ""); setKartuId(item.kartu_id ? String(item.kartu_id) : ""); setBulan(item.bulan); setTanggalBayar(item.tanggal_bayar); setNominal(String(item.nominal)); setKeterangan(item.keterangan ?? ""); setShowForm(true); setError(null); }}>Edit</button><button type="button" className="font-medium text-red-700 hover:underline" onClick={async () => { if (!window.confirm("Hapus catatan pemasukan ini? Tindakan ini tidak dapat dibatalkan.")) return; const { error: deleteError } = await supabase!.from("iuran").delete().eq("id", item.id); if (deleteError) setError(deleteError.message); else { if (editing?.id === item.id) resetForm(); await loadData(); } }}>Hapus</button></td>}
               </tr>
             ))}
             {items.length === 0 ? (
