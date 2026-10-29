@@ -37,13 +37,13 @@ export default function DashboardPage() {
       const [{ data, error }, iuranResult, pengeluaranResult] = await Promise.all([
         client.from("kartu_kas").select("id,parent_id,kategori,nama,catatan,nominal,ikon").order("urutan", { ascending: true }),
         client.from("iuran").select("kartu_id,nominal"),
-        client.from("pengeluaran").select("kartu_id,nominal"),
+        client.from("pengeluaran").select("kartu_id,nominal,jenis_keperluan"),
       ]);
       if (error || iuranResult.error || pengeluaranResult.error) { setNotice("Database tersambung, tetapi saldo belum bisa dibaca"); setLoadingSummary(false); return; }
       const income = new Map<number, number>();
       const expense = new Map<number, number>();
       for (const row of iuranResult.data ?? []) if (row.kartu_id) income.set(Number(row.kartu_id), (income.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
-      for (const row of pengeluaranResult.data ?? []) if (row.kartu_id) expense.set(Number(row.kartu_id), (expense.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
+      for (const row of pengeluaranResult.data ?? []) if (row.kartu_id && row.jenis_keperluan !== "Ke petugas lain") expense.set(Number(row.kartu_id), (expense.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
       const groupBalances = calculateGroupBalances(data ?? [], iuranResult.data ?? [], pengeluaranResult.data ?? []);
       const cards = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: card.parent_id === null && card.kategori === "Kelompok" ? groupBalances.get(Number(card.id)) ?? 0 : (income.get(Number(card.id)) ?? 0) - (expense.get(Number(card.id)) ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori }));
       setSummaryTotal([...groupBalances.values()].reduce((sum, balance) => sum + balance, 0));

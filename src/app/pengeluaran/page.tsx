@@ -162,7 +162,7 @@ export default function PengeluaranPage() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">Pencatatan Pengeluaran Kas</h1><p className="text-sm text-zinc-600">Kelola seluruh pengeluaran kas berdasarkan kelompok.</p></div>{canEdit && <button type="button" onClick={() => setShowForm((current) => !current)} className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-[.98]">{showForm ? "Tutup Form" : "+ Tambah Pengeluaran"}</button>}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">Pengeluaran & Serah Terima Kas</h1><p className="text-sm text-zinc-600">Catat biaya nyata dan perpindahan kas antarpemegang atau antarkelompok.</p></div>{canEdit && <button type="button" onClick={() => setShowForm((current) => !current)} className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-[.98]">{showForm ? "Tutup Form" : "+ Tambah Transaksi"}</button>}</div>
 
       {canEdit && showForm && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-4">
         <input required type="date" value={tanggal} onChange={(event) => setTanggal(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2" />

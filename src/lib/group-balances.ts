@@ -7,6 +7,7 @@ type BalanceCard = {
 type BalanceTransaction = {
   kartu_id: number | null;
   nominal: number | string | null;
+  jenis_keperluan?: string | null;
 };
 
 /**
@@ -38,6 +39,7 @@ export function calculateGroupBalances(
 
   const addRows = (rows: BalanceTransaction[], sign: 1 | -1) => {
     for (const row of rows) {
+      if (sign === -1 && row.jenis_keperluan === "Ke petugas lain") continue;
       const groupId = row.kartu_id === null ? null : rootGroupForCard(Number(row.kartu_id));
       if (groupId === null) continue;
       balances.set(groupId, (balances.get(groupId) ?? 0) + sign * Number(row.nominal ?? 0));
