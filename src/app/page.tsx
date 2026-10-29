@@ -20,7 +20,7 @@ function shuffledColors() { return [...colors].sort(() => Math.random() - 0.5); 
 function rupiah(value: number) { return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value); }
 
 export default function DashboardPage() {
-  const { canEdit } = useAuth();
+  const { canEdit, profile } = useAuth();
   const [funds, setFunds] = useState<Fund[]>([]);
   const [summaryTotal, setSummaryTotal] = useState(0);
   const [cardColors, setCardColors] = useState(shuffledColors);
@@ -72,6 +72,14 @@ export default function DashboardPage() {
       draft.id = Number(data.id);
       const { error: functionError } = await supabase.from("kartu_kas").insert(functionCards.map((card) => ({ parent_id: draft.id, kategori: card.kategori, nama: card.kategori, catatan: card.catatan, nominal: 0, ikon: card.ikon, allow_tambah_anggota: false })));
       if (functionError) { setNotice("Kelompok tersimpan, tetapi kartu fungsi gagal dibuat"); return; }
+      if (profile?.id) {
+        const { data: group, error: groupLookupError } = await supabase.from("kelompok").select("id").eq("nama", draft.name).limit(1).maybeSingle();
+        if (groupLookupError || !group) setNotice("Kelompok tersimpan, tetapi akun pembuat belum terhubung ke kelompok");
+        else {
+          const { error: membershipError } = await supabase.from("profile_kelompok").upsert({ profile_id: profile.id, kelompok_id: group.id }, { onConflict: "profile_id,kelompok_id" });
+          if (membershipError) setNotice("Kelompok tersimpan, tetapi akun pembuat belum terhubung ke kelompok");
+        }
+      }
     }
     setFunds((current) => [...current, draft]);
     setShowAddMenu(false);

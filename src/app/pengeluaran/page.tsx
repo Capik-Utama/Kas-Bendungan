@@ -69,7 +69,8 @@ export default function PengeluaranPage() {
     }
 
     setItems(((data as PengeluaranItem[]) ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId));
-    setGroupCards(scopedKartuId ? ((cardsResult.data as GroupCard[]) ?? []).filter((card) => card.id === scopedKartuId) : (cardsResult.data as GroupCard[]) ?? []);
+    const loadedCards = (cardsResult.data as GroupCard[]) ?? [];
+    setGroupCards(scopedKartuId ? loadedCards.filter((card) => card.id === scopedKartuId) : loadedCards);
     setGroups((groupsResult.data as GroupOption[]) ?? []);
     setOfficers((officersResult.data as Officer[]) ?? []);
     setError(null);
@@ -81,7 +82,7 @@ export default function PengeluaranPage() {
     }, 0);
 
     return () => clearTimeout(timeout);
-  }, []);
+  }, [profile?.id, scopedKartuId]);
 
   const sortedItems = useMemo(() => [...items].sort((a, b) => {
     const left = sortKey === "nominal" ? Number(a.nominal ?? 0) : String(a[sortKey] ?? "");
@@ -110,7 +111,7 @@ export default function PengeluaranPage() {
       return;
     }
 
-    if (!kartuId) { setError("Pilih kelompok sumber transaksi."); return; }
+    if (!scopedKartuId) { setError("Buka form pengeluaran dari kartu kelompok terlebih dahulu."); return; }
     if (jenisKeperluan === "Ke kelompok lain" && !tujuanKelompokId) { setError("Pilih kelompok tujuan."); return; }
     if (jenisKeperluan === "Ke petugas lain" && !tujuanPetugasId) { setError("Pilih petugas tujuan."); return; }
 
@@ -122,7 +123,7 @@ export default function PengeluaranPage() {
       tujuan_petugas_id: jenisKeperluan === "Ke petugas lain" ? tujuanPetugasId : null,
       nominal: Number(nominal),
       keterangan,
-      kartu_id: Number(kartuId),
+      kartu_id: scopedKartuId,
       petugas_id: profile?.id ?? null,
     };
     const { error: insertError } = editing
@@ -152,7 +153,7 @@ export default function PengeluaranPage() {
         <select required value={jenisKeperluan} onChange={(event) => { const next = event.target.value as ExpensePurpose; setJenisKeperluan(next); setTujuanKelompokId(""); setTujuanPetugasId(""); }} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="Ke kelompok lain">Ke kelompok lain</option><option value="Ke petugas lain">Ke petugas lain</option><option value="Kebutuhan kelompok">Kebutuhan kelompok</option></select>
         {jenisKeperluan === "Ke kelompok lain" && <><select required value={tujuanKelompokId} onChange={(event) => setTujuanKelompokId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok tujuan</option>{groups.filter((group) => group.nama !== groupCards.find((card) => card.id === Number(kartuId))?.nama).map((group) => <option key={group.id} value={group.id}>{group.nama}</option>)}</select><select required value={tujuanPetugasId} onChange={(event) => setTujuanPetugasId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih petugas tujuan</option>{officers.map((officer) => <option key={officer.id} value={officer.id}>{officer.username}</option>)}</select></>}
         {jenisKeperluan === "Ke petugas lain" && <select required value={tujuanPetugasId} onChange={(event) => setTujuanPetugasId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih petugas tujuan</option>{officers.filter((officer) => officer.id !== profile?.id).map((officer) => <option key={officer.id} value={officer.id}>{officer.username}</option>)}</select>}
-        <select required value={kartuId} onChange={(event) => setKartuId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok sumber</option>{groupCards.map((card) => <option key={card.id} value={card.id}>{card.nama}</option>)}</select>
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 md:col-span-2">Sumber transaksi: <strong>{groupCards.find((card) => card.id === scopedKartuId)?.nama || "Kelompok ini"}</strong></p>
         <input value={keperluan} onChange={(event) => setKeperluan(event.target.value)} placeholder="Detail keperluan (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" />
         <input value={keterangan} onChange={(event) => setKeterangan(event.target.value)} placeholder="Keterangan" className="rounded-lg border border-zinc-300 px-3 py-2" />
         <input required type="number" min={0} value={nominal} onChange={(event) => setNominal(event.target.value)} placeholder="Nominal" className="rounded-lg border border-zinc-300 px-3 py-2" />
@@ -179,7 +180,7 @@ export default function PengeluaranPage() {
                 <td className="whitespace-nowrap px-4 py-3">{formatTanggal(item.tanggal)}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
                 <td className="px-4 py-3">{item.keterangan || item.keperluan || "-"}</td>
-                {canEdit && <td className="whitespace-nowrap px-4 py-3"><button type="button" className="mr-3 font-medium text-emerald-700 hover:underline" onClick={() => { setEditing(item); setTanggal(item.tanggal); setJenisKeperluan(item.jenis_keperluan || "Kebutuhan kelompok"); setTujuanKelompokId(String(item.tujuan_kelompok_id ?? "")); setTujuanPetugasId(item.tujuan_petugas_id ?? ""); setKeperluan(item.keperluan); setNominal(String(item.nominal)); setKeterangan(item.keterangan ?? ""); setKartuId(String((item as PengeluaranItem & {kartu_id?: number}).kartu_id ?? "")); setShowForm(true); setError(null); }}>Edit</button><button type="button" className="font-medium text-red-700 hover:underline" onClick={async () => { if (!window.confirm("Hapus catatan pengeluaran ini? Tindakan ini tidak dapat dibatalkan.")) return; const { error: deleteError } = await supabase!.from("pengeluaran").delete().eq("id", item.id); if (deleteError) setError(deleteError.message); else { if (editing?.id === item.id) resetForm(); await loadData(); } }}>Hapus</button></td>}
+                {canEdit && <td className="whitespace-nowrap px-4 py-3"><button type="button" className="mr-3 font-medium text-emerald-700 hover:underline" onClick={() => { setEditing(item); setTanggal(item.tanggal); setJenisKeperluan(item.jenis_keperluan || "Kebutuhan kelompok"); setTujuanKelompokId(String(item.tujuan_kelompok_id ?? "")); setTujuanPetugasId(item.tujuan_petugas_id ?? ""); setKeperluan(item.keperluan); setNominal(String(item.nominal)); setKeterangan(item.keterangan ?? ""); setKartuId(scopedKartuId ? String(scopedKartuId) : ""); setShowForm(true); setError(null); }}>Edit</button><button type="button" className="font-medium text-red-700 hover:underline" onClick={async () => { if (!window.confirm("Hapus catatan pengeluaran ini? Tindakan ini tidak dapat dibatalkan.")) return; const { error: deleteError } = await supabase!.from("pengeluaran").delete().eq("id", item.id); if (deleteError) setError(deleteError.message); else { if (editing?.id === item.id) resetForm(); await loadData(); } }}>Hapus</button></td>}
               </tr>
             ))}
             {items.length === 0 ? (
