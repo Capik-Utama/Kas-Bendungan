@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { calculateGroupBalances } from "@/lib/group-balances";
 
 const colors = ["coral", "blue", "mint", "yellow", "lavender", "peach", "sky"];
 const functionCards = [
@@ -63,6 +64,7 @@ export default function CardFolderPage() {
       const latest = new Map<number, string>();
       for (const row of iuranResult.data ?? []) if (row.kartu_id) { const id = Number(row.kartu_id); income.set(id, (income.get(id) ?? 0) + Number(row.nominal ?? 0)); const date = String(row.tanggal_bayar ?? ""); if (date > (latest.get(id) ?? "")) latest.set(id, date); }
       for (const row of pengeluaranResult.data ?? []) if (row.kartu_id) { const id = Number(row.kartu_id); expense.set(id, (expense.get(id) ?? 0) + Number(row.nominal ?? 0)); const date = String(row.tanggal ?? ""); if (date > (latest.get(id) ?? "")) latest.set(id, date); }
+      const groupBalances = calculateGroupBalances(data ?? [], iuranResult.data ?? [], pengeluaranResult.data ?? []);
       const groupById = new Map((groupsResult.data ?? []).map((group) => [Number(group.id), String(group.nama)]));
       const currentCardName = (data ?? []).find((card) => Number(card.id) === cardId)?.nama;
       const currentGroupId = [...groupById.entries()].find(([, name]) => name === currentCardName)?.[0] ?? null;
@@ -73,7 +75,8 @@ export default function CardFolderPage() {
         const id = Number(card.id); const parentId = card.parent_id ? Number(card.parent_id) : null; const groupId = parentId ? [...groupById.entries()].find(([, name]) => name === (data ?? []).find((parent) => Number(parent.id) === parentId)?.nama)?.[0] ?? null : null;
         const childAmount = card.kategori === "Pemasukan" ? (parentId ? income.get(parentId) ?? 0 : 0) : card.kategori === "Pengeluaran" ? (parentId ? expense.get(parentId) ?? 0 : 0) : card.kategori === "Anggota" ? (groupId ? memberCounts.get(groupId) ?? 0 : 0) : 0;
         const displayValue = card.kategori === "Anggota" ? `${childAmount} anggota` : card.kategori === "Laporan" ? (parentId && latest.get(parentId) ? `Terakhir: ${latest.get(parentId)}` : "Belum ada transaksi") : undefined;
-        return { id, name: card.nama, note: "", icon: card.ikon, amount: card.parent_id ? childAmount : (income.get(id) ?? 0) - (expense.get(id) ?? 0), displayValue, parentId, category: card.kategori, allowMembers: Boolean(card.allow_tambah_anggota) };
+        const amount = parentId === null && card.kategori === "Kelompok" ? groupBalances.get(id) ?? 0 : parentId ? childAmount : (income.get(id) ?? 0) - (expense.get(id) ?? 0);
+        return { id, name: card.nama, note: "", icon: card.ikon, amount, displayValue, parentId, category: card.kategori, allowMembers: Boolean(card.allow_tambah_anggota) };
       });
       setCards(loaded);
       setCurrent(loaded.find((card) => card.id === cardId) ?? null);

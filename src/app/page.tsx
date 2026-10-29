@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { calculateGroupBalances } from "@/lib/group-balances";
 
 const colors = ["coral", "blue", "mint", "yellow", "lavender", "peach", "sky"];
 const functionCards = [
@@ -45,7 +46,8 @@ export default function DashboardPage() {
       for (const row of pengeluaranResult.data ?? []) if (row.kartu_id) expense.set(Number(row.kartu_id), (expense.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
       const totalIncome = (iuranResult.data ?? []).reduce((sum, row) => sum + Number(row.nominal ?? 0), 0);
       const totalExpenses = (pengeluaranResult.data ?? []).reduce((sum, row) => sum + Number(row.nominal ?? 0), 0);
-      const cards = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: (income.get(Number(card.id)) ?? 0) - (expense.get(Number(card.id)) ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori }));
+      const groupBalances = calculateGroupBalances(data ?? [], iuranResult.data ?? [], pengeluaranResult.data ?? []);
+      const cards = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: card.parent_id === null && card.kategori === "Kelompok" ? groupBalances.get(Number(card.id)) ?? 0 : (income.get(Number(card.id)) ?? 0) - (expense.get(Number(card.id)) ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori }));
       setSummaryTotal(totalIncome - totalExpenses);
       setFunds(cards.filter((card) => card.parentId === null));
       setLoadingSummary(false);
