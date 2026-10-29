@@ -10,9 +10,8 @@ type BalanceTransaction = {
 };
 
 /**
- * Calculates each root group's net balance from transactions attached anywhere
- * in its card tree. Unassigned transactions are attributed only when there is
- * exactly one root group, where ownership is unambiguous.
+ * Calculates each root group's net balance only from transactions explicitly
+ * attached to a card in its tree. Unassigned transactions are never attributed.
  */
 export function calculateGroupBalances(
   cards: BalanceCard[],
@@ -22,7 +21,6 @@ export function calculateGroupBalances(
   const cardsById = new Map(cards.map((card) => [Number(card.id), card]));
   const rootGroups = cards.filter((card) => card.parent_id === null && card.kategori === "Kelompok");
   const balances = new Map(rootGroups.map((group) => [Number(group.id), 0]));
-  const soleGroupId = rootGroups.length === 1 ? Number(rootGroups[0].id) : null;
 
   const rootGroupForCard = (cardId: number): number | null => {
     let current = cardsById.get(cardId);
@@ -40,9 +38,7 @@ export function calculateGroupBalances(
 
   const addRows = (rows: BalanceTransaction[], sign: 1 | -1) => {
     for (const row of rows) {
-      const groupId = row.kartu_id === null
-        ? soleGroupId
-        : rootGroupForCard(Number(row.kartu_id));
+      const groupId = row.kartu_id === null ? null : rootGroupForCard(Number(row.kartu_id));
       if (groupId === null) continue;
       balances.set(groupId, (balances.get(groupId) ?? 0) + sign * Number(row.nominal ?? 0));
     }

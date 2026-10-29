@@ -44,11 +44,9 @@ export default function DashboardPage() {
       const expense = new Map<number, number>();
       for (const row of iuranResult.data ?? []) if (row.kartu_id) income.set(Number(row.kartu_id), (income.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
       for (const row of pengeluaranResult.data ?? []) if (row.kartu_id) expense.set(Number(row.kartu_id), (expense.get(Number(row.kartu_id)) ?? 0) + Number(row.nominal ?? 0));
-      const totalIncome = (iuranResult.data ?? []).reduce((sum, row) => sum + Number(row.nominal ?? 0), 0);
-      const totalExpenses = (pengeluaranResult.data ?? []).reduce((sum, row) => sum + Number(row.nominal ?? 0), 0);
       const groupBalances = calculateGroupBalances(data ?? [], iuranResult.data ?? [], pengeluaranResult.data ?? []);
       const cards = (data ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: card.parent_id === null && card.kategori === "Kelompok" ? groupBalances.get(Number(card.id)) ?? 0 : (income.get(Number(card.id)) ?? 0) - (expense.get(Number(card.id)) ?? 0), parentId: card.parent_id ? Number(card.parent_id) : null, category: card.kategori }));
-      setSummaryTotal(totalIncome - totalExpenses);
+      setSummaryTotal([...groupBalances.values()].reduce((sum, balance) => sum + balance, 0));
       setFunds(cards.filter((card) => card.parentId === null));
       setLoadingSummary(false);
     };
