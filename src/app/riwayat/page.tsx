@@ -147,7 +147,7 @@ export default function RiwayatPage() {
     if (item.tipe === "PINDAH" && item.transferDirection === "MASUK") return sum + (item.petugasRole === role ? item.nominal : 0);
     return sum + (item.petugasRole === role ? -item.nominal : 0);
   }, 0);
-  const applicationCash = cashByRole("developer");
+  const applicationCash = Math.max(0, cashByRole("developer"));
   const ketuaCash = cashByRole("ketua");
   const bendaharaCash = cashByRole("bendahara");
   const periodLabel = startDate || endDate ? `${startDate ? formatTanggal(startDate) : "Awal"} – ${endDate ? formatTanggal(endDate) : "Sekarang"}` : "Seluruh periode";
