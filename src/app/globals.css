@@ -406,9 +406,14 @@ button { font: inherit; cursor: pointer; border: 0; }
   .report-summary p, .report-summary strong { font-size: 10pt !important; margin: 0 !important; text-align: center !important; }
 }
 
-/* Group cards keep their existing footprint while showing a compact logo and balance detail. */
-.fund-logo { position:absolute; top:12px; right:14px; width:52px; height:52px; object-fit:contain; border-radius:8px; }
-.group-balance-note { display:block; margin-top:4px; color:var(--muted); font:11px 'DM Mono',monospace; letter-spacing:0; }
+/* Logo groups use the clickable artwork as the tile, with the balance directly below. */
+.group-logo-entry { display:flex; min-width:0; min-height:210px; flex-direction:column; align-items:center; justify-content:flex-start; gap:9px; }
+.group-logo-link { display:flex; width:100%; height:180px; align-items:center; justify-content:center; overflow:hidden; }
+.group-logo-image { display:block; width:min(100%, 180px); height:180px; object-fit:contain; transition:transform .2s; }
+.group-logo-link:hover .group-logo-image { transform:scale(1.035); }
+.group-logo-balance { color:var(--ink); text-align:center; }
+.group-logo-balance strong { display:block; font:600 20px 'DM Mono',monospace; letter-spacing:-.05em; }
+.group-logo-balance small { display:block; margin-top:3px; color:var(--muted); font:11px 'DM Mono',monospace; }
 .logo-upload-setting { align-items:flex-start; flex-direction:column; gap:9px; }
 .logo-file-input { max-width:100%; color:var(--ink); font:13px 'DM Sans',sans-serif; }
 .logo-upload-setting small { color:var(--muted); font-size:12px; }
