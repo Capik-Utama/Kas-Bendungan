@@ -31,6 +31,7 @@ const formatAddedDate = (value: string) => new Intl.DateTimeFormat("id-ID", { da
 export default function WargaPage() {
   const { canEdit, user, isGuest, loading, profile } = useAuth();
   const isRestricted = isGuest || profile?.role === "anggota";
+  const canManageMembers = canEdit && profile?.role !== "bendahara";
   const allowedMemberRoles: Role[] = profile?.role === "developer" ? MEMBER_ROLE_OPTIONS : profile?.role === "ketua" ? ["anggota", "bendahara"] : ["anggota"];
   const searchParams = useSearchParams();
   const groupFilter = searchParams.get("kelompok");
@@ -173,6 +174,7 @@ export default function WargaPage() {
   };
 
   const deleteMember = async (item: Warga) => {
+    if (!canManageMembers) { setError("Bendahara tidak memiliki akses mengubah atau menghapus anggota."); return; }
     const mode = window.prompt(`Hapus ${item.nama}. Ketik “kembalikan” untuk menjadikan iuran sebagai pengeluaran, atau “pertahankan” untuk tetap mencatatnya:`)?.trim().toLowerCase();
     if (mode !== "kembalikan" && mode !== "pertahankan") return;
     const password = window.prompt("Masukkan password login untuk mengonfirmasi penghapusan anggota:");
@@ -199,7 +201,7 @@ export default function WargaPage() {
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); if (!supabase || isSavingRef.current) return; setError(null); setNotice(null); if (!nama.trim() || !selectedGroups.length) { setError("Nama anggota dan minimal satu kelompok wajib diisi."); return; }
+    event.preventDefault(); if (!canManageMembers || !supabase || isSavingRef.current) return; setError(null); setNotice(null); if (!nama.trim() || !selectedGroups.length) { setError("Nama anggota dan minimal satu kelompok wajib diisi."); return; }
     const submittedAmount = String(new FormData(event.currentTarget).get("iuranAwal") ?? "").trim();
     const initialAmount = submittedAmount ? Number(submittedAmount) : Number.NaN;
     if (!Number.isFinite(initialAmount) || initialAmount < 0) { setError("Nominal iuran awal harus berupa angka nol atau lebih."); return; }
@@ -308,8 +310,8 @@ export default function WargaPage() {
   };
   const groupChecklist = <fieldset className="grid gap-2 sm:grid-cols-3"><legend className="mb-1 text-sm font-medium text-zinc-700">Kelompok <span className="text-xs font-normal text-zinc-500">(pilih satu atau lebih)</span></legend>{groups.map((group) => <label key={group.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2"><input type="checkbox" checked={selectedGroups.includes(group.id)} onChange={() => toggleGroup(group.id)} /><span className="whitespace-nowrap">{group.nama}</span></label>)}</fieldset>;
 
-  return <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">Data Anggota{groupFilter ? ` - ${groupFilter}` : ""}</h1><p className="text-sm text-zinc-600">{groupFilter ? `Menampilkan anggota yang mengikuti kelompok ${groupFilter} saja.` : "Satu anggota dapat mengikuti beberapa kelompok sekaligus."}</p></div>{canEdit && <button type="button" onClick={startAdd} className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-[.98]">{showForm && !editing ? "Tutup Form" : "+ Tambah Anggota"}</button>}</div>
-    {canEdit && showForm && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-3">
+  return <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">Data Anggota{groupFilter ? ` - ${groupFilter}` : ""}</h1><p className="text-sm text-zinc-600">{groupFilter ? `Menampilkan anggota yang mengikuti kelompok ${groupFilter} saja.` : "Satu anggota dapat mengikuti beberapa kelompok sekaligus."}</p></div>{canManageMembers && <button type="button" onClick={startAdd} className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-[.98]">{showForm && !editing ? "Tutup Form" : "+ Tambah Anggota"}</button>}</div>
+    {canManageMembers && showForm && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-3">
       <input required value={nama} onChange={(event) => setNama(event.target.value)} placeholder="Nama anggota *" className="rounded-lg border border-zinc-300 px-3 py-2" />
       {groupChecklist}
       <div className="grid content-start gap-1">
@@ -357,7 +359,7 @@ export default function WargaPage() {
               <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskFixed(item.nik_kk, 6) : (item.nik_kk || "-")}</td>
               <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskPhone(item.nomor_telepon) : (item.nomor_telepon || "-")}</td>
               <td className="whitespace-nowrap px-4 py-3">{item.created_at ? formatAddedDate(item.created_at) : "-"}</td>
-              <td className="whitespace-nowrap px-4 py-3"><div className="flex gap-2">{canEdit && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canEdit && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td>
+              <td className="whitespace-nowrap px-4 py-3"><div className="flex gap-2">{canManageMembers && <button className="rounded border border-zinc-300 px-2 py-1" type="button" onClick={() => startEdit(item)}>Edit</button>}{canManageMembers && <button className="rounded border border-red-300 px-2 py-1 text-red-700" type="button" onClick={() => void deleteMember(item)}>Hapus</button>}</div></td>
             </tr>
           ))}
           {sortedItems.length === 0 ? <tr><td colSpan={10} className="px-4 py-6 text-center text-zinc-500">{searchQuery.trim() ? "Tidak ada anggota yang cocok dengan pencarian." : `Belum ada data anggota${groupFilter ? ` di ${groupFilter}` : ""}.`}</td></tr> : null}

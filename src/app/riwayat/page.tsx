@@ -17,10 +17,11 @@ type RiwayatItem = {
   keterangan: string;
   kelompok: string;
   petugas: string;
+  petugasRole: string;
 };
 
 type RelatedWarga = { nama: string } | { nama: string }[] | null;
-type RelatedRecord = { nama?: string; username?: string; display_name?: string } | { nama?: string; username?: string; display_name?: string }[] | null;
+type RelatedRecord = { nama?: string; username?: string; display_name?: string; role?: string } | { nama?: string; username?: string; display_name?: string; role?: string }[] | null;
 
 function namaWarga(value: RelatedWarga) {
   return Array.isArray(value) ? value[0]?.nama ?? "" : value?.nama ?? "";
@@ -34,6 +35,11 @@ function namaPetugas(value: RelatedRecord) {
 function namaKelompok(value: RelatedRecord) {
   const record = Array.isArray(value) ? value[0] : value;
   return record?.nama || "Tanpa kelompok";
+}
+
+function rolePetugas(value: RelatedRecord) {
+  const record = Array.isArray(value) ? value[0] : value;
+  return record?.role || "developer";
 }
 
 function formatTanggal(value: string) {
@@ -78,19 +84,19 @@ export default function RiwayatPage() {
     if (!client) return;
     const loadHistory = async () => {
       const [iuranResult, pengeluaranResult, groupResult] = await Promise.all([
-        client.from("iuran").select("id, tanggal_bayar, created_at, nominal, bulan, keterangan, kartu_id, warga:warga_id(nama), kelompok:kartu_id(nama), petugas:petugas_id(username)"),
-        client.from("pengeluaran").select("id, tanggal, created_at, nominal, keperluan, keterangan, kartu_id, kelompok:kartu_id(nama), petugas:petugas_id(username)"),
+        client.from("iuran").select("id, tanggal_bayar, created_at, nominal, bulan, keterangan, kartu_id, warga:warga_id(nama), kelompok:kartu_id(nama), petugas:petugas_id(username, role)"),
+        client.from("pengeluaran").select("id, tanggal, created_at, nominal, keperluan, keterangan, kartu_id, kelompok:kartu_id(nama), petugas:petugas_id(username, role)"),
         scopedKartuId ? client.from("kartu_kas").select("nama").eq("id", scopedKartuId).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
       if (iuranResult.error || pengeluaranResult.error || groupResult.error) { setError(iuranResult.error?.message ?? pengeluaranResult.error?.message ?? groupResult.error?.message ?? "Gagal memuat laporan"); return; }
       setGroupName(groupResult.data?.nama ? String(groupResult.data.nama) : "Semua Kelompok");
       const iuranItems: RiwayatItem[] = (iuranResult.data ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId).map((item) => ({
         id: `iuran-${item.id}`, nama: namaWarga(item.warga as RelatedWarga), tipe: "MASUK", tanggal: item.created_at || item.tanggal_bayar,
-        nominal: Number(item.nominal ?? 0), sumber: "Iuran", keterangan: item.keterangan || item.bulan || "-", kelompok: namaKelompok(item.kelompok as RelatedRecord), petugas: namaPetugas(item.petugas as RelatedRecord),
+        nominal: Number(item.nominal ?? 0), sumber: "Iuran", keterangan: item.keterangan || item.bulan || "-", kelompok: namaKelompok(item.kelompok as RelatedRecord), petugas: namaPetugas(item.petugas as RelatedRecord), petugasRole: rolePetugas(item.petugas as RelatedRecord),
       }));
       const pengeluaranItems: RiwayatItem[] = (pengeluaranResult.data ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId).map((item) => ({
         id: `pengeluaran-${item.id}`, nama: "", tipe: "KELUAR", tanggal: item.created_at || item.tanggal, nominal: Number(item.nominal ?? 0),
-        sumber: item.keperluan || "Pengeluaran", keterangan: item.keterangan || "-", kelompok: namaKelompok(item.kelompok as RelatedRecord), petugas: namaPetugas(item.petugas as RelatedRecord),
+        sumber: item.keperluan || "Pengeluaran", keterangan: item.keterangan || "-", kelompok: namaKelompok(item.kelompok as RelatedRecord), petugas: namaPetugas(item.petugas as RelatedRecord), petugasRole: rolePetugas(item.petugas as RelatedRecord),
       }));
       setItems([...iuranItems, ...pengeluaranItems]);
       setError(null);
@@ -115,6 +121,10 @@ export default function RiwayatPage() {
   const totalIncome = filteredItems.filter((item) => item.tipe === "MASUK").reduce((sum, item) => sum + item.nominal, 0);
   const totalExpense = filteredItems.filter((item) => item.tipe === "KELUAR").reduce((sum, item) => sum + item.nominal, 0);
   const finalBalance = totalIncome - totalExpense;
+  const cashByRole = (role: string) => filteredItems.reduce((sum, item) => item.petugasRole === role ? sum + (item.tipe === "MASUK" ? item.nominal : -item.nominal) : sum, 0);
+  const applicationCash = cashByRole("developer");
+  const ketuaCash = cashByRole("ketua");
+  const bendaharaCash = cashByRole("bendahara");
   const periodLabel = startDate || endDate ? `${startDate ? formatTanggal(startDate) : "Awal"} – ${endDate ? formatTanggal(endDate) : "Sekarang"}` : "Seluruh periode";
   const reportTitle = `Laporan Transaksi ${groupName}`;
   const toggleSort = (key: typeof sortKey) => { if (sortKey === key) setSortAsc((value) => !value); else { setSortKey(key); setSortAsc(key === "nama" || key === "sumber" || key === "keterangan"); } };
@@ -134,9 +144,9 @@ export default function RiwayatPage() {
       const sheet = XLSX.utils.aoa_to_sheet([
         [reportTitle.toUpperCase()],
         ["Periode", periodLabel],
-        ["Kas di Aplikasi", finalBalance],
-        ["Kas di ketua (Firda)", 0],
-        ["Kas di bendahara (M Taufik)", 0],
+        ["Kas di Aplikasi", applicationCash],
+        ["Kas di ketua (Firda)", ketuaCash],
+        ["Kas di bendahara (M Taufik)", bendaharaCash],
         ["Total pemasukan", totalIncome],
         ["Total pengeluaran", totalExpense],
         ["Kas akhir", finalBalance],
@@ -169,6 +179,6 @@ export default function RiwayatPage() {
     <div className="report-table-wrapper overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm"><table className="min-w-[980px] text-left text-sm"><thead className="bg-zinc-100 text-zinc-700"><tr>{([ ["nama", "Nama (jika iuran)"], ["tipe", "Tipe"], ["tanggal", "Tanggal"], ["nominal", "Nominal"], ["sumber", "Sumber/Keperluan"], ["kelompok", "Kelompok"], ["petugas", "Petugas"], ["keterangan", "Keterangan"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700 print:pointer-events-none">{label}{sortLabel(key)}</button></th>)}</tr></thead><tbody>{visibleItems.map((item) => <tr key={item.id} className="border-t border-zinc-200 align-top"><td className="whitespace-nowrap px-4 py-3">{isGuest ? maskName(item.nama) : (item.nama || "-")}</td><td className="whitespace-nowrap px-4 py-3"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${item.tipe === "MASUK" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>{item.tipe}</span></td><td className="whitespace-nowrap px-4 py-3">{formatTanggal(item.tanggal)}</td><td className="whitespace-nowrap px-4 py-3">{formatRupiah(item.nominal)}</td><td className="whitespace-nowrap px-4 py-3">{item.sumber}</td><td className="whitespace-nowrap px-4 py-3">{item.kelompok}</td><td className="whitespace-nowrap px-4 py-3">{isGuest ? maskName(item.petugas) : item.petugas}</td><td className="px-4 py-3">{item.keterangan}</td></tr>)}{visibleItems.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-zinc-500">Belum ada transaksi pada periode ini.</td></tr>}</tbody></table></div>
     <div className="report-print-table-wrapper"><table className="report-print-table"><thead><tr>{["No", "Nama", "Jenis", "Tanggal", "Nominal", "Sumber/Keperluan", "Kelompok", "Petugas", "Keterangan"].map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{sortedItems.map((item, index) => <tr key={item.id}><td>{index + 1}</td><td>{isGuest ? maskName(item.nama) : item.nama || "-"}</td><td>{item.tipe}</td><td>{formatTanggal(item.tanggal)}</td><td>{formatRupiah(item.nominal)}</td><td>{item.sumber}</td><td>{item.kelompok}</td><td>{isGuest ? maskName(item.petugas) : item.petugas}</td><td>{item.keterangan}</td></tr>)}{sortedItems.length === 0 && <tr><td colSpan={9}>Belum ada transaksi pada periode ini.</td></tr>}</tbody></table></div>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm print:hidden"><span className="text-sm text-zinc-600">Menampilkan {visibleItems.length ? (currentPage - 1) * pageSize + 1 : 0}-{Math.min(currentPage * pageSize, sortedItems.length)} dari {sortedItems.length} transaksi</span><div className="flex items-center gap-2"><label className="text-sm text-zinc-600">Baris per halaman<select value={pageSize} onChange={(event) => changePageSize(Number(event.target.value))} className="ml-2 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-800"><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label><div className="flex gap-1"><button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => value - 1)} className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm disabled:opacity-40">‹</button>{Array.from({ length: totalPages }, (_, index) => index + 1).map((number) => <button key={number} type="button" onClick={() => setPage(number)} className={`rounded-lg border px-3 py-1.5 text-sm ${number === currentPage ? "border-emerald-600 bg-emerald-600 text-white" : "border-zinc-300"}`}>{number}</button>)}<button type="button" disabled={currentPage === totalPages} onClick={() => setPage((value) => value + 1)} className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm disabled:opacity-40">›</button></div></div></div>
-    <section className="report-summary rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"><h2 className="mb-3 text-lg font-semibold">Rincian Laporan</h2><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-xl bg-zinc-50 p-3"><p className="text-sm text-zinc-500">Periode</p><strong className="block text-sm">{periodLabel}</strong></div><div className="rounded-xl bg-violet-50 p-3"><p className="text-sm text-violet-700">Kas di Aplikasi</p><strong className="block text-lg text-violet-800">{formatRupiah(finalBalance)}</strong></div><div className="rounded-xl bg-amber-50 p-3"><p className="text-sm text-amber-700">Kas di ketua (Firda)</p><strong className="block text-lg text-amber-800">{formatRupiah(0)}</strong></div><div className="rounded-xl bg-orange-50 p-3"><p className="text-sm text-orange-700">Kas di bendahara (M Taufik)</p><strong className="block text-lg text-orange-800">{formatRupiah(0)}</strong></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-sm text-emerald-700">Total pemasukan</p><strong className="block text-lg text-emerald-800">{formatRupiah(totalIncome)}</strong></div><div className="rounded-xl bg-rose-50 p-3"><p className="text-sm text-rose-700">Pengeluaran</p><strong className="block text-lg text-rose-800">{formatRupiah(totalExpense)}</strong></div><div className="rounded-xl bg-sky-50 p-3"><p className="text-sm text-sky-700">Kas akhir</p><strong className="block text-lg text-sky-800">{formatRupiah(finalBalance)}</strong></div></div></section>
+    <section className="report-summary rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"><h2 className="mb-3 text-lg font-semibold">Rincian Laporan</h2><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-xl bg-zinc-50 p-3"><p className="text-sm text-zinc-500">Periode</p><strong className="block text-sm">{periodLabel}</strong></div><div className="rounded-xl bg-violet-50 p-3"><p className="text-sm text-violet-700">Kas di Aplikasi</p><strong className="block text-lg text-violet-800">{formatRupiah(applicationCash)}</strong></div><div className="rounded-xl bg-amber-50 p-3"><p className="text-sm text-amber-700">Kas di ketua (Firda)</p><strong className="block text-lg text-amber-800">{formatRupiah(ketuaCash)}</strong></div><div className="rounded-xl bg-orange-50 p-3"><p className="text-sm text-orange-700">Kas di bendahara (M Taufik)</p><strong className="block text-lg text-orange-800">{formatRupiah(bendaharaCash)}</strong></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-sm text-emerald-700">Total pemasukan</p><strong className="block text-lg text-emerald-800">{formatRupiah(totalIncome)}</strong></div><div className="rounded-xl bg-rose-50 p-3"><p className="text-sm text-rose-700">Pengeluaran</p><strong className="block text-lg text-rose-800">{formatRupiah(totalExpense)}</strong></div><div className="rounded-xl bg-sky-50 p-3"><p className="text-sm text-sky-700">Kas akhir</p><strong className="block text-lg text-sky-800">{formatRupiah(finalBalance)}</strong></div></div></section>
   </section>;
 }
