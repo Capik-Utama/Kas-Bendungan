@@ -126,23 +126,32 @@ export default function IuranPage() {
       return;
     }
 
-    const { error: insertError } = await supabase.from("iuran").insert({
+    const payload = {
       warga_id: Number(wargaId),
       bulan,
+      tanggal_bayar: tanggalBayar,
       nominal: Number(nominal),
       keterangan,
       kartu_id: Number(kartuId),
       petugas_id: profile?.id ?? null,
-    });
+    };
+    const { error: insertError } = editing
+      ? await supabase.from("iuran").update(payload).eq("id", editing.id)
+      : await supabase.from("iuran").insert(payload);
 
     if (insertError) {
       setError(insertError.message);
       return;
     }
 
-    const { data: existing } = await supabase.from("kartu_kas").select("id").eq("parent_id", Number(kartuId)).eq("kategori", "Pemasukan").limit(1);
-    if (!existing?.length) await supabase.from("kartu_kas").insert({ parent_id: Number(kartuId), kategori: "Pemasukan", nama: "Pemasukan", catatan: "Pemasukan dari transaksi warga", nominal: 0, ikon: "↗" });
+    if (!editing) {
+      const { data: existing } = await supabase.from("kartu_kas").select("id").eq("parent_id", Number(kartuId)).eq("kategori", "Pemasukan").limit(1);
+      if (!existing?.length) await supabase.from("kartu_kas").insert({ parent_id: Number(kartuId), kategori: "Pemasukan", nama: "Pemasukan", catatan: "Pemasukan dari transaksi warga", nominal: 0, ikon: "↗" });
+    }
 
+    setEditing(null);
+    setShowForm(false);
+    setTanggalBayar("");
     setWargaId("");
     setBulan("");
     setNominal("");

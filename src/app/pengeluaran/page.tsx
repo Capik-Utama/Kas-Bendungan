@@ -84,22 +84,29 @@ export default function PengeluaranPage() {
 
     if (!kartuId) { setError("Pilih kelompok tujuan transaksi."); return; }
 
-    const { error: insertError } = await supabase.from("pengeluaran").insert({
+    const payload = {
       tanggal,
       keperluan,
       nominal: Number(nominal),
       keterangan,
       kartu_id: Number(kartuId),
       petugas_id: profile?.id ?? null,
-    });
+    };
+    const { error: insertError } = editing
+      ? await supabase.from("pengeluaran").update(payload).eq("id", editing.id)
+      : await supabase.from("pengeluaran").insert(payload);
 
     if (insertError) {
       setError(insertError.message);
       return;
     }
-    const { data: existing } = await supabase.from("kartu_kas").select("id").eq("parent_id", Number(kartuId)).eq("kategori", "Pengeluaran").limit(1);
-    if (!existing?.length) await supabase.from("kartu_kas").insert({ parent_id: Number(kartuId), kategori: "Pengeluaran", nama: "Pengeluaran", catatan: "Pengeluaran dari transaksi kas", nominal: 0, ikon: "↘" });
+    if (!editing) {
+      const { data: existing } = await supabase.from("kartu_kas").select("id").eq("parent_id", Number(kartuId)).eq("kategori", "Pengeluaran").limit(1);
+      if (!existing?.length) await supabase.from("kartu_kas").insert({ parent_id: Number(kartuId), kategori: "Pengeluaran", nama: "Pengeluaran", catatan: "Pengeluaran dari transaksi kas", nominal: 0, ikon: "↘" });
+    }
 
+    setEditing(null);
+    setShowForm(false);
     setTanggal("");
     setKeperluan("");
     setNominal("");
