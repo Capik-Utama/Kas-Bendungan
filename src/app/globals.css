@@ -405,3 +405,12 @@ button { font: inherit; cursor: pointer; border: 0; }
   .report-summary > div > div { padding: 1.5mm !important; }
   .report-summary p, .report-summary strong { font-size: 10pt !important; margin: 0 !important; text-align: center !important; }
 }
+
+/* Group cards keep their existing footprint while showing a compact logo and balance detail. */
+.fund-logo { position:absolute; top:12px; right:14px; width:52px; height:52px; object-fit:contain; border-radius:8px; }
+.group-balance-note { display:block; margin-top:4px; color:var(--muted); font:11px 'DM Mono',monospace; letter-spacing:0; }
+.logo-upload-setting { align-items:flex-start; flex-direction:column; gap:9px; }
+.logo-file-input { max-width:100%; color:var(--ink); font:13px 'DM Sans',sans-serif; }
+.logo-upload-setting small { color:var(--muted); font-size:12px; }
+.logo-file-input::file-selector-button { margin-right:10px; padding:8px 11px; border:1px solid var(--line); border-radius:4px; background:transparent; color:var(--ink); font:500 12px 'DM Mono',monospace; cursor:pointer; }
+.logo-file-input::file-selector-button:hover { background:color-mix(in srgb, var(--paper) 70%, var(--ink) 10%); }

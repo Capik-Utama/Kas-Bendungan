@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { calculateGroupBalances } from "@/lib/group-balances";
+import { GroupLogoUpload } from "@/components/group-logo-upload";
+import { removeGroupLogo, uploadGroupLogo } from "@/lib/group-logo";
 
 const colors = ["coral", "blue", "mint", "yellow", "lavender", "peach", "sky"];
 const functionCards = [
@@ -14,7 +16,7 @@ const functionCards = [
   { kategori: "Anggota", ikon: "♙", catatan: "" },
   { kategori: "Laporan", ikon: "▤", catatan: "" },
 ] as const;
-type Card = { id: number; name: string; note: string; icon: string; amount: number; displayValue?: string; parentId: number | null; category: string; allowMembers?: boolean };
+type Card = { id: number; name: string; note: string; icon: string; amount: number; displayValue?: string; parentId: number | null; category: string; allowMembers?: boolean; logoUrl?: string | null };
 type GroupProfile = { username: string; display_name: string; role: string; profile_kelompok?: { kelompok_id: number }[] };
 let nextLocalId = 200000;
 function rupiah(value: number) { return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value); }
@@ -31,6 +33,9 @@ export default function CardFolderPage() {
   const [editName, setEditName] = useState("");
   const [editAllowMembers, setEditAllowMembers] = useState(false);
   const [allowMembers, setAllowMembers] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupLogo, setGroupLogo] = useState<File | null>(null);
+  const [addingGroup, setAddingGroup] = useState(false);
   const [groupManagers, setGroupManagers] = useState<GroupProfile[]>([]);
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -51,7 +56,7 @@ export default function CardFolderPage() {
     const client = supabase;
     const load = async () => {
       const [{ data, error }, iuranResult, pengeluaranResult, groupsResult, wargaResult, profilesResult] = await Promise.all([
-        client.from("kartu_kas").select("id,parent_id,kategori,nama,catatan,nominal,ikon,allow_tambah_anggota").order("urutan", { ascending: true }),
+        client.from("kartu_kas").select("id,parent_id,kategori,nama,catatan,nominal,ikon,allow_tambah_anggota,logo_url").order("urutan", { ascending: true }),
         client.from("iuran").select("kartu_id,nominal,tanggal_bayar"),
         client.from("pengeluaran").select("kartu_id,nominal,tanggal,jenis_keperluan,tujuan_kelompok_id"),
         client.from("kelompok").select("id,nama"),
@@ -76,7 +81,7 @@ export default function CardFolderPage() {
         const childAmount = card.kategori === "Pemasukan" ? (parentId ? income.get(parentId) ?? 0 : 0) : card.kategori === "Pengeluaran" ? (parentId ? expense.get(parentId) ?? 0 : 0) : card.kategori === "Anggota" ? (groupId ? memberCounts.get(groupId) ?? 0 : 0) : 0;
         const displayValue = card.kategori === "Anggota" ? `${childAmount} anggota` : card.kategori === "Laporan" ? (parentId && latest.get(parentId) ? `Terakhir: ${latest.get(parentId)}` : "Belum ada transaksi") : undefined;
         const amount = parentId === null && card.kategori === "Kelompok" ? groupBalances.get(id) ?? 0 : parentId ? childAmount : (income.get(id) ?? 0) - (expense.get(id) ?? 0);
-        return { id, name: card.nama, note: "", icon: card.ikon, amount, displayValue, parentId, category: card.kategori, allowMembers: Boolean(card.allow_tambah_anggota) };
+        return { id, name: card.nama, note: "", icon: card.ikon, amount, displayValue, parentId, category: card.kategori, allowMembers: Boolean(card.allow_tambah_anggota), logoUrl: card.logo_url };
       });
       setCards(loaded);
       setCurrent(loaded.find((card) => card.id === cardId) ?? null);
@@ -87,27 +92,38 @@ export default function CardFolderPage() {
 
   async function addChild(category: string) {
     if (!current || current.category !== "Kelompok" || category !== "Kelompok") return;
-    const name = window.prompt(`Nama ${category.toLowerCase()} di dalam ${current.name}`, `${category} Baru`);
-    if (!name?.trim()) return;
-    const draft: Card = { id: nextLocalId++, name: name.trim(), note: "", icon: "+", amount: 0, parentId: current.id, category, allowMembers };
-    if (supabase) {
-      const { data, error } = await supabase.from("kartu_kas").insert({ parent_id: current.id, kategori: category, nama: draft.name, catatan: "", nominal: 0, ikon: "+", allow_tambah_anggota: category === "Kelompok" && allowMembers }).select("id").single();
-      if (error) { setNotice("Subkartu gagal disimpan ke database"); return; }
-      draft.id = Number(data.id);
-      const { data: functionData, error: functionError } = await supabase.from("kartu_kas").insert(functionCards.map((card) => ({ parent_id: draft.id, kategori: card.kategori, nama: card.kategori, catatan: card.catatan, nominal: 0, ikon: card.ikon, allow_tambah_anggota: false }))).select("id,parent_id,kategori,nama,catatan,nominal,ikon,allow_tambah_anggota");
-      if (functionError) { setNotice("Kelompok tersimpan, tetapi kartu fungsi gagal dibuat"); return; }
-      setCards((existing) => [...existing, draft, ...(functionData ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: Number(card.nominal ?? 0), parentId: Number(card.parent_id), category: card.kategori, allowMembers: Boolean(card.allow_tambah_anggota) }))]);
+    const name = groupName.trim();
+    if (!name) { setNotice("Nama kelompok wajib diisi"); return; }
+    if (addingGroup) return;
+    setAddingGroup(true);
+    let uploaded: { path: string; url: string } | null = null;
+    let inserted = false;
+    try {
+      if (groupLogo) uploaded = await uploadGroupLogo(groupLogo);
+      const draft: Card = { id: nextLocalId++, name, note: "", icon: "+", amount: 0, parentId: current.id, category, allowMembers, logoUrl: uploaded?.url ?? null };
+      if (supabase) {
+        const { data, error } = await supabase.from("kartu_kas").insert({ parent_id: current.id, kategori: category, nama: draft.name, catatan: "", nominal: 0, ikon: "+", allow_tambah_anggota: allowMembers, logo_url: draft.logoUrl }).select("id").single();
+        if (error) throw new Error(`Kelompok gagal disimpan: ${error.message}`);
+        inserted = true;
+        draft.id = Number(data.id);
+        const { data: functionData, error: functionError } = await supabase.from("kartu_kas").insert(functionCards.map((card) => ({ parent_id: draft.id, kategori: card.kategori, nama: card.kategori, catatan: card.catatan, nominal: 0, ikon: card.ikon, allow_tambah_anggota: false }))).select("id,parent_id,kategori,nama,catatan,nominal,ikon,allow_tambah_anggota,logo_url");
+        if (functionError) { setNotice("Kelompok tersimpan, tetapi kartu fungsi gagal dibuat"); return; }
+        setCards((existing) => [...existing, draft, ...(functionData ?? []).map((card) => ({ id: Number(card.id), name: card.nama, note: card.catatan, icon: card.ikon, amount: Number(card.nominal ?? 0), parentId: Number(card.parent_id), category: card.kategori, allowMembers: Boolean(card.allow_tambah_anggota), logoUrl: card.logo_url }))]);
+      } else {
+        setCards((existing) => [...existing, draft]);
+      }
       setShowAddMenu(false);
       setAllowMembers(false);
+      setGroupName("");
+      setGroupLogo(null);
       setNotice("Kelompok dan kartu fungsi berhasil ditambahkan");
       window.setTimeout(() => setNotice(""), 1800);
-      return;
+    } catch (error) {
+      if (uploaded && !inserted) await removeGroupLogo(uploaded.path);
+      setNotice(error instanceof Error ? error.message : "Kelompok gagal ditambahkan");
+    } finally {
+      setAddingGroup(false);
     }
-    setCards((existing) => [...existing, draft]);
-    setShowAddMenu(false);
-    setAllowMembers(false);
-    setNotice("Subkartu berhasil ditambahkan");
-    window.setTimeout(() => setNotice(""), 1800);
   }
 
   async function deleteCard(card: Card) {
@@ -155,5 +171,5 @@ export default function CardFolderPage() {
   if (loading) return <main className="folder-shell"><p className="folder-loading">Membuka kelompok...</p></main>;
   if (!current) return <main className="folder-shell"><Link href="/" className="back-link">← Kembali ke kartu kas</Link><div className="empty-folder"><h1>Kelompok tidak ditemukan</h1><p>Kartu ini mungkin sudah dipindahkan atau dihapus.</p></div></main>;
 
-  return <main className="folder-shell"><div className="grain" aria-hidden="true" /><div className="folder-toolbar"><Link href="/" className="back-link">← Semua kartu</Link><span className="folder-path">Ruang kelompok / {current.name}</span></div><header className="folder-heading"><div><span className="fund-label">{current.category === "Kelompok" ? "KELOMPOK" : current.category.toUpperCase()}</span><h1>{current.name}</h1>{current.note && <p>{current.note}</p>}{groupManagers.length > 0 && <p className="text-sm text-zinc-600">Pengelola: {groupManagers.map((manager) => `${manager.display_name || manager.username} (${manager.role === "ketua" ? "Ketua" : manager.role === "bendahara" ? "Bendahara" : "Developer"})`).join(", ")}</p>}</div>{canManageCurrent && <div className="folder-actions"><button type="button" className="edit-card folder-edit" onClick={() => openEditMenu(current)}>Edit kartu</button><button type="button" className="delete-card folder-delete" onClick={() => void deleteCard(current)}>Hapus kelompok</button></div>}</header><div className="folder-balance"><div className="balance-top"><span>Saldo kelompok</span><span>Terakhir diperbarui hari ini</span></div><strong>{rupiah(current.amount)}</strong><div className="balance-bottom"><span>Kas yang tersedia di Kelompok ini</span><span>↗</span></div></div><div className="folder-divider" /><section className="folder-section"><div className="folder-grid">{children.map((card, index) => <Link key={card.id} href={functionHref(card)} className={`fund-card ${colors[index % colors.length]}`}><div className="fund-icon">{card.icon}</div><div className="fund-content"><span className="fund-label">{card.category.toUpperCase()}</span><h4>{card.name}</h4>{card.note && <p>{card.note}</p>}<div className="fund-amount">{card.displayValue ?? (card.category === "Anggota" ? `${card.amount} anggota` : card.category === "Laporan" ? "Belum ada transaksi" : rupiah(card.amount))}</div></div><span className="card-arrow">Buka ↗</span></Link>)}</div></section>{canManageCurrent && showEditMenu && <section className="add-menu card-edit-menu"><div className="add-menu-heading"><div><span className="fund-label">PENGATURAN KARTU</span><h3>Edit kartu kelompok</h3></div><button className="panel-close" onClick={() => setShowEditMenu(false)} aria-label="Tutup pengaturan kartu">×</button></div><label className="card-setting"><span>Nama kartu</span><input value={editName} onChange={(event) => setEditName(event.target.value)} aria-label="Nama kartu" /></label><label className="card-setting"><input type="checkbox" checked={editAllowMembers} onChange={(event) => setEditAllowMembers(event.target.checked)} /> Izinkan penambahan anggota pada kartu ini</label><div className="edit-menu-actions"><button type="button" className="edit-card" onClick={() => void saveCardSettings()}>Simpan pengaturan</button><button type="button" className="panel-close" onClick={() => setShowEditMenu(false)}>Batal</button></div></section>}{canManageCurrent && showAddMenu && <section className="add-menu"><div className="add-menu-heading"><div><span className="fund-label">KELOMPOK BERTINGKAT</span><h3>Tambah subkelompok</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div><label className="card-setting"><input type="checkbox" checked={allowMembers} onChange={(event) => setAllowMembers(event.target.checked)} /> Izinkan penambahan anggota pada subkelompok ini</label><div className="add-options"><button onClick={() => void addChild("Kelompok")}><span>▦</span><b>Kelompok</b><small>Otomatis membuat kartu fungsi</small></button></div></section>}{canManageCurrent && <button className="add-card folder-add-card" onClick={() => { setShowAddMenu((open) => !open); setShowEditMenu(false); }} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah subkelompok</b><small>Buat kelompok bertingkat di dalam {current.name}</small></span></button>}<section className="folder-caption"><span className="fund-label">ISI KELOMPOK</span><h3>{children.length ? `${children.length} kartu di dalam` : "Belum ada subkartu"}</h3><span className="folder-hint">Klik kartu fungsi untuk membuka data kelompok</span></section>{notice && <div className="toast">{notice}</div>}</main>;
+  return <main className="folder-shell"><div className="grain" aria-hidden="true" /><div className="folder-toolbar"><Link href="/" className="back-link">← Semua kartu</Link><span className="folder-path">Ruang kelompok / {current.name}</span></div><header className="folder-heading"><div><span className="fund-label">{current.category === "Kelompok" ? "KELOMPOK" : current.category.toUpperCase()}</span><h1>{current.name}</h1>{current.note && <p>{current.note}</p>}{groupManagers.length > 0 && <p className="text-sm text-zinc-600">Pengelola: {groupManagers.map((manager) => `${manager.display_name || manager.username} (${manager.role === "ketua" ? "Ketua" : manager.role === "bendahara" ? "Bendahara" : "Developer"})`).join(", ")}</p>}</div>{canManageCurrent && <div className="folder-actions"><button type="button" className="edit-card folder-edit" onClick={() => openEditMenu(current)}>Edit kartu</button><button type="button" className="delete-card folder-delete" onClick={() => void deleteCard(current)}>Hapus kelompok</button></div>}</header><div className="folder-balance"><div className="balance-top"><span>Saldo kelompok</span><span>Terakhir diperbarui hari ini</span></div><strong>{rupiah(current.amount)}</strong><div className="balance-bottom"><span>Kas yang tersedia di Kelompok ini</span><span>↗</span></div></div><div className="folder-divider" /><section className="folder-section"><div className="folder-grid">{children.map((card, index) => <Link key={card.id} href={functionHref(card)} className={`fund-card ${colors[index % colors.length]}`}><div className="fund-icon">{card.icon}</div><div className="fund-content"><span className="fund-label">{card.category.toUpperCase()}</span><h4>{card.name}</h4>{card.note && <p>{card.note}</p>}<div className="fund-amount">{card.displayValue ?? (card.category === "Anggota" ? `${card.amount} anggota` : card.category === "Laporan" ? "Belum ada transaksi" : rupiah(card.amount))}</div></div><span className="card-arrow">Buka ↗</span></Link>)}</div></section>{canManageCurrent && showEditMenu && <section className="add-menu card-edit-menu"><div className="add-menu-heading"><div><span className="fund-label">PENGATURAN KARTU</span><h3>Edit kartu kelompok</h3></div><button className="panel-close" onClick={() => setShowEditMenu(false)} aria-label="Tutup pengaturan kartu">×</button></div><label className="card-setting"><span>Nama kartu</span><input value={editName} onChange={(event) => setEditName(event.target.value)} aria-label="Nama kartu" /></label><label className="card-setting"><input type="checkbox" checked={editAllowMembers} onChange={(event) => setEditAllowMembers(event.target.checked)} /> Izinkan penambahan anggota pada kartu ini</label><div className="edit-menu-actions"><button type="button" className="edit-card" onClick={() => void saveCardSettings()}>Simpan pengaturan</button><button type="button" className="panel-close" onClick={() => setShowEditMenu(false)}>Batal</button></div></section>}{canManageCurrent && showAddMenu && <section className="add-menu"><div className="add-menu-heading"><div><span className="fund-label">KELOMPOK BERTINGKAT</span><h3>Tambah subkelompok</h3></div><button className="panel-close" onClick={() => setShowAddMenu(false)} aria-label="Tutup menu tambah">×</button></div><label className="card-setting"><span>Nama subkelompok</span><input value={groupName} onChange={(event) => setGroupName(event.target.value)} aria-label="Nama subkelompok" /></label><GroupLogoUpload value={groupLogo} onChange={setGroupLogo} /><label className="card-setting"><input type="checkbox" checked={allowMembers} onChange={(event) => setAllowMembers(event.target.checked)} /> Izinkan penambahan anggota pada subkelompok ini</label><div className="add-options"><button disabled={addingGroup} onClick={() => void addChild("Kelompok")}><span>▦</span><b>{addingGroup ? "Menyimpan…" : "Kelompok"}</b><small>Otomatis membuat kartu fungsi</small></button></div></section>}{canManageCurrent && <button className="add-card folder-add-card" onClick={() => { setShowAddMenu((open) => !open); setShowEditMenu(false); }} aria-expanded={showAddMenu}><span className="plus">+</span><span><b>Tambah subkelompok</b><small>Buat kelompok bertingkat di dalam {current.name}</small></span></button>}<section className="folder-caption"><span className="fund-label">ISI KELOMPOK</span><h3>{children.length ? `${children.length} kartu di dalam` : "Belum ada subkartu"}</h3><span className="folder-hint">Klik kartu fungsi untuk membuka data kelompok</span></section>{notice && <div className="toast">{notice}</div>}</main>;
 }
