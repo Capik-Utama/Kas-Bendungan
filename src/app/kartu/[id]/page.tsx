@@ -112,15 +112,14 @@ export default function CardFolderPage() {
 
   async function deleteCard(card: Card) {
     if (card.category !== "Kelompok") return;
-    if (!window.confirm(`Hapus kelompok “${card.name}” beserta seluruh isi di dalamnya?`)) return;
+    if (!window.confirm(`Hapus kelompok “${card.name}” beserta seluruh isi dan pembukuan yang tertaut di dalamnya? Iuran serta pengeluaran kelompok ini akan dihapus permanen. Pembukuan kelompok lain tidak terpengaruh.`)) return;
     const password = window.prompt("Masukkan password login untuk mengonfirmasi penghapusan:");
     if (!password) return;
     if (!supabase || !user?.email) { setNotice("Sesi login tidak tersedia"); return; }
     const { error: authError } = await supabase.auth.signInWithPassword({ email: user.email, password });
     if (authError) { setNotice("Password salah. Kelompok tidak dihapus."); return; }
-    const { error } = await supabase.from("kartu_kas").delete().eq("id", card.id);
-    if (error) { setNotice("Kelompok gagal dihapus"); return; }
-    await supabase.from("kelompok").delete().eq("nama", card.name);
+    const { error } = await supabase.rpc("delete_group_with_bookkeeping", { p_group_card_id: card.id });
+    if (error) { setNotice(`Kelompok gagal dihapus: ${error.message}`); return; }
     setCards((existing) => existing.filter((item) => item.id !== card.id));
     if (card.id === current?.id) { router.push("/"); return; }
     setNotice("Kelompok berhasil dihapus");

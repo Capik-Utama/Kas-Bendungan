@@ -51,7 +51,7 @@ export default function DashboardPage() {
       setLoadingSummary(false);
     };
     void loadCards();
-    const channel = client.channel("kas-bendungan-summary").on("postgres_changes", { event: "*", schema: "public", table: "iuran" }, loadCards).on("postgres_changes", { event: "*", schema: "public", table: "pengeluaran" }, loadCards).subscribe();
+    const channel = client.channel("kas-bendungan-summary").on("postgres_changes", { event: "*", schema: "public", table: "iuran" }, loadCards).on("postgres_changes", { event: "*", schema: "public", table: "pengeluaran" }, loadCards).on("postgres_changes", { event: "*", schema: "public", table: "kartu_kas" }, loadCards).subscribe();
     return () => { void client.removeChannel(channel); };
   }, []);
 
