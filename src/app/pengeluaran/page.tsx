@@ -11,6 +11,11 @@ function formatTanggal(value: string) {
   return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T00:00:00`));
 }
 
+function tanggalHariIni() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
 type ExpensePurpose = "Ke kelompok lain" | "Ke petugas lain" | "Kebutuhan kelompok";
 type PengeluaranItem = {
   id: number;
@@ -34,7 +39,7 @@ export default function PengeluaranPage() {
   const searchParams = useSearchParams();
   const scopedKartuId = Number(searchParams.get("kartu_id") || 0);
   const [items, setItems] = useState<PengeluaranItem[]>([]);
-  const [tanggal, setTanggal] = useState("");
+  const [tanggal, setTanggal] = useState(tanggalHariIni);
   const [jenisKeperluan, setJenisKeperluan] = useState<ExpensePurpose>("Kebutuhan kelompok");
   const [tujuanKelompokId, setTujuanKelompokId] = useState("");
   const [tujuanPetugasId, setTujuanPetugasId] = useState("");
@@ -101,7 +106,7 @@ export default function PengeluaranPage() {
   const sortLabel = (key: typeof sortKey) => sortKey === key ? (sortAsc ? " ↑" : " ↓") : " ↕";
   const resetForm = () => {
     setEditing(null);
-    setTanggal("");
+    setTanggal(tanggalHariIni());
     setJenisKeperluan("Kebutuhan kelompok");
     setTujuanKelompokId("");
     setTujuanPetugasId("");
