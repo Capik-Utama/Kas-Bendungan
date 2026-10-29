@@ -17,6 +17,7 @@ type PengeluaranItem = {
   keperluan: string;
   nominal: number;
   keterangan: string;
+  kartu_id?: number | null;
 };
 type GroupCard = { id: number; nama: string };
 
@@ -34,6 +35,7 @@ export default function PengeluaranPage() {
   const [sortKey, setSortKey] = useState<"tanggal" | "nominal" | "keterangan">("tanggal");
   const [sortAsc, setSortAsc] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<PengeluaranItem | null>(null);
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
@@ -51,7 +53,7 @@ export default function PengeluaranPage() {
       return;
     }
 
-    setItems(((data as (PengeluaranItem & { kartu_id: number | null })[]) ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId));
+    setItems(((data as PengeluaranItem[]) ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId));
     setGroupCards(scopedKartuId ? ((cardsResult.data as GroupCard[]) ?? []).filter((card) => card.id === scopedKartuId) : (cardsResult.data as GroupCard[]) ?? []);
     setError(null);
   };
@@ -142,7 +144,7 @@ export default function PengeluaranPage() {
           className="rounded-lg border border-zinc-300 px-3 py-2"
         />
         <button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700 md:col-span-4" type="submit">
-          Simpan Pengeluaran
+          {editing ? "Simpan Perubahan" : "Simpan Pengeluaran"}
         </button>
       </form>}
 
@@ -155,7 +157,7 @@ export default function PengeluaranPage() {
           <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
             <tr>
               {([ ["tanggal", "Tanggal"], ["nominal", "Nominal"], ["keterangan", "Keterangan"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
-            </tr>
+            {canEdit && <th className="whitespace-nowrap px-4 py-3">Aksi</th>}</tr>
           </thead>
           <tbody>
             {sortedItems.map((item) => (
@@ -163,11 +165,12 @@ export default function PengeluaranPage() {
                 <td className="whitespace-nowrap px-4 py-3">{formatTanggal(item.tanggal)}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
                 <td className="px-4 py-3">{item.keterangan || item.keperluan || "-"}</td>
+                {canEdit && <td className="whitespace-nowrap px-4 py-3"><button type="button" className="mr-3 font-medium text-emerald-700 hover:underline" onClick={() => { setEditing(item); setTanggal(item.tanggal); setKeperluan(item.keperluan); setNominal(String(item.nominal)); setKeterangan(item.keterangan ?? ""); setKartuId(String((item as PengeluaranItem & {kartu_id?: number}).kartu_id ?? "")); setShowForm(true); setError(null); }}>Edit</button><button type="button" className="font-medium text-red-700 hover:underline" onClick={async () => { if (!window.confirm("Hapus catatan pengeluaran ini? Tindakan ini tidak dapat dibatalkan.")) return; const { error: deleteError } = await supabase!.from("pengeluaran").delete().eq("id", item.id); if (deleteError) setError(deleteError.message); else await loadData(); }}>Hapus</button></td>}
               </tr>
             ))}
             {items.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={canEdit ? 4 : 3} className="px-4 py-6 text-center text-zinc-500">
                   Belum ada data pengeluaran.
                 </td>
               </tr>

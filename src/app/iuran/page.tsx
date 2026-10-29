@@ -25,6 +25,7 @@ type IuranItem = {
   tanggal_bayar: string;
   keterangan: string;
   kartu_id: number | null;
+  warga_id?: number | null;
   warga: {
     nama: string;
   } | {
@@ -49,6 +50,8 @@ export default function IuranPage() {
   const [sortKey, setSortKey] = useState<"warga" | "nominal" | "tanggal" | "keterangan">("tanggal");
   const [sortAsc, setSortAsc] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<IuranItem | null>(null);
+  const [tanggalBayar, setTanggalBayar] = useState("");
   const [error, setError] = useState<string | null>(
     supabase ? null : "Supabase belum dikonfigurasi.",
   );
@@ -66,7 +69,7 @@ export default function IuranPage() {
       supabase.from("warga").select("id, nama, warga_kelompok(kelompok_id)").order("nama", { ascending: true }),
       supabase
         .from("iuran")
-        .select("id, bulan, nominal, tanggal_bayar, keterangan, kartu_id, warga:warga_id(nama)")
+        .select("id, bulan, nominal, tanggal_bayar, keterangan, kartu_id, warga_id, warga:warga_id(nama)")
         .order("tanggal_bayar", { ascending: false }),
       supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
       supabase.from("kelompok").select("id, nama").order("nama"),
@@ -167,6 +170,7 @@ export default function IuranPage() {
           ))}
         </select>
         <select required value={kartuId} onChange={(event) => setKartuId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">{selectedWarga ? (availableGroupCards.length ? "Pilih kelompok tujuan" : "Anggota belum memiliki kelompok") : "Pilih anggota terlebih dahulu"}</option>{availableGroupCards.map((card) => <option key={card.id} value={card.id}>{card.nama}</option>)}</select>
+        <input type="date" required value={tanggalBayar} onChange={(event) => setTanggalBayar(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2" />
         <input
           required
           value={bulan}
@@ -190,7 +194,7 @@ export default function IuranPage() {
           className="rounded-lg border border-zinc-300 px-3 py-2"
         />
         <button className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700 md:col-span-4" type="submit">
-          Simpan Pembayaran Iuran
+          {editing ? "Simpan Perubahan" : "Simpan Pembayaran Iuran"}
         </button>
       </form>}
 
@@ -203,7 +207,7 @@ export default function IuranPage() {
           <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
             <tr>
               {([ ["warga", "Nama"], ["nominal", "Nominal"], ["tanggal", "Tanggal"], ["keterangan", "Keterangan"] ] as const).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3"><button type="button" onClick={() => toggleSort(key)} className="font-semibold hover:text-emerald-700">{label}{sortLabel(key)}</button></th>)}
-            </tr>
+            {canEdit && <th className="whitespace-nowrap px-4 py-3">Aksi</th>}</tr>
           </thead>
           <tbody>
             {sortedItems.map((item) => (
@@ -212,11 +216,12 @@ export default function IuranPage() {
                 <td className="whitespace-nowrap px-4 py-3">{formatRupiah(Number(item.nominal ?? 0))}</td>
                 <td className="whitespace-nowrap px-4 py-3">{formatTanggal(item.tanggal_bayar)}</td>
                 <td className="px-4 py-3">{item.keterangan || item.bulan || "-"}</td>
+                {canEdit && <td className="whitespace-nowrap px-4 py-3"><button type="button" className="mr-3 font-medium text-emerald-700 hover:underline" onClick={() => { setEditing(item); setWargaId(item.warga_id ? String(item.warga_id) : ""); setKartuId(item.kartu_id ? String(item.kartu_id) : ""); setBulan(item.bulan); setTanggalBayar(item.tanggal_bayar); setNominal(String(item.nominal)); setKeterangan(item.keterangan ?? ""); setShowForm(true); setError(null); }}>Edit</button><button type="button" className="font-medium text-red-700 hover:underline" onClick={async () => { if (!window.confirm("Hapus catatan pemasukan ini? Tindakan ini tidak dapat dibatalkan.")) return; const { error: deleteError } = await supabase!.from("iuran").delete().eq("id", item.id); if (deleteError) setError(deleteError.message); else await loadData(); }}>Hapus</button></td>}
               </tr>
             ))}
             {items.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={canEdit ? 5 : 4} className="px-4 py-6 text-center text-zinc-500">
                   Belum ada data iuran.
                 </td>
               </tr>
