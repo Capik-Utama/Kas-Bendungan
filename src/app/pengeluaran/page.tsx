@@ -30,7 +30,7 @@ type PengeluaranItem = {
   tujuanKelompok?: { nama: string } | { nama: string }[] | null;
   tujuanPetugas?: { username: string } | { username: string }[] | null;
 };
-type GroupCard = { id: number; nama: string };
+type GroupCard = { id: number; parent_id: number | null; nama: string };
 type GroupOption = { id: number; nama: string };
 type Officer = { id: string; username: string; role: string; profile_kelompok?: { kelompok_id: number }[] };
 
@@ -64,7 +64,7 @@ export default function PengeluaranPage() {
 
     const [{ data, error: loadError }, cardsResult, groupsResult, officersResult] = await Promise.all([
       supabase.from("pengeluaran").select("id, tanggal, keperluan, jenis_keperluan, nominal, keterangan, kartu_id, tujuan_kelompok_id, tujuan_petugas_id, tujuanKelompok:tujuan_kelompok_id(nama), tujuanPetugas:tujuan_petugas_id(username)").order("tanggal", { ascending: false }),
-      supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
+      supabase.from("kartu_kas").select("id, parent_id, nama").eq("kategori", "Kelompok").order("nama"),
       supabase.from("kelompok").select("id, nama").order("nama"),
       supabase.from("profiles").select("id, username, role, profile_kelompok(kelompok_id)").in("role", ["developer", "ketua", "bendahara"]).order("username"),
     ]);
@@ -77,9 +77,11 @@ export default function PengeluaranPage() {
     setItems(((data as PengeluaranItem[]) ?? []).filter((item) => !scopedKartuId || item.kartu_id === scopedKartuId));
     const loadedCards = (cardsResult.data as GroupCard[]) ?? [];
     setGroupCards(scopedKartuId ? loadedCards.filter((card) => card.id === scopedKartuId) : loadedCards);
-    setGroups((groupsResult.data as GroupOption[]) ?? []);
+    const rootGroupNames = new Set(loadedCards.filter((card) => card.parent_id === null).map((card) => card.nama));
+    const loadedGroups = ((groupsResult.data as GroupOption[]) ?? []).filter((group) => rootGroupNames.has(group.nama));
+    setGroups(loadedGroups);
     const activeCardName = loadedCards.find((card) => card.id === scopedKartuId)?.nama;
-    const activeGroupId = ((groupsResult.data as GroupOption[]) ?? []).find((group) => group.nama === activeCardName)?.id;
+    const activeGroupId = loadedGroups.find((group) => group.nama === activeCardName)?.id;
     const loadedOfficers = (officersResult.data as Officer[]) ?? [];
     setAllOfficers(loadedOfficers);
     setOfficers(scopedKartuId && activeGroupId

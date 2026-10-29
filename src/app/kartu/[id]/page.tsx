@@ -53,7 +53,7 @@ export default function CardFolderPage() {
       const [{ data, error }, iuranResult, pengeluaranResult, groupsResult, wargaResult, profilesResult] = await Promise.all([
         client.from("kartu_kas").select("id,parent_id,kategori,nama,catatan,nominal,ikon,allow_tambah_anggota").order("urutan", { ascending: true }),
         client.from("iuran").select("kartu_id,nominal,tanggal_bayar"),
-        client.from("pengeluaran").select("kartu_id,nominal,tanggal,jenis_keperluan"),
+        client.from("pengeluaran").select("kartu_id,nominal,tanggal,jenis_keperluan,tujuan_kelompok_id"),
         client.from("kelompok").select("id,nama"),
         client.from("warga").select("id,warga_kelompok(kelompok_id)"),
         client.from("profiles").select("username,display_name,role,profile_kelompok(kelompok_id)"),
@@ -63,8 +63,8 @@ export default function CardFolderPage() {
       const expense = new Map<number, number>();
       const latest = new Map<number, string>();
       for (const row of iuranResult.data ?? []) if (row.kartu_id) { const id = Number(row.kartu_id); income.set(id, (income.get(id) ?? 0) + Number(row.nominal ?? 0)); const date = String(row.tanggal_bayar ?? ""); if (date > (latest.get(id) ?? "")) latest.set(id, date); }
-      for (const row of pengeluaranResult.data ?? []) if (row.kartu_id) { const id = Number(row.kartu_id); if (row.jenis_keperluan !== "Ke petugas lain") expense.set(id, (expense.get(id) ?? 0) + Number(row.nominal ?? 0)); const date = String(row.tanggal ?? ""); if (date > (latest.get(id) ?? "")) latest.set(id, date); }
-      const groupBalances = calculateGroupBalances(data ?? [], iuranResult.data ?? [], pengeluaranResult.data ?? []);
+      for (const row of pengeluaranResult.data ?? []) if (row.kartu_id) { const id = Number(row.kartu_id); if (row.jenis_keperluan === "Kebutuhan kelompok" || row.jenis_keperluan === "Ke kelompok lain") expense.set(id, (expense.get(id) ?? 0) + Number(row.nominal ?? 0)); const date = String(row.tanggal ?? ""); if (date > (latest.get(id) ?? "")) latest.set(id, date); }
+      const groupBalances = calculateGroupBalances(data ?? [], iuranResult.data ?? [], pengeluaranResult.data ?? [], groupsResult.data ?? []);
       const groupById = new Map((groupsResult.data ?? []).map((group) => [Number(group.id), String(group.nama)]));
       const currentCardName = (data ?? []).find((card) => Number(card.id) === cardId)?.nama;
       const currentGroupId = [...groupById.entries()].find(([, name]) => name === currentCardName)?.[0] ?? null;
