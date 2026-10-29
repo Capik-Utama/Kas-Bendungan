@@ -66,6 +66,10 @@ export default function UserPage() {
       setNotice("Data akun dan kelompok berhasil diperbarui."); resetForm(); await loadProfiles(); return;
     }
     const cleanUsername = username.trim(); const passwordForNewAccount = role === "anggota" ? "1234" : password; if (!cleanUsername || (role !== "anggota" && password.length < 8)) { setError("Nama wajib diisi; password role pengelola minimal 8 karakter."); return; }
+    if (!editing && role === "anggota") {
+      const { data: existingName } = await supabase.from("profiles").select("id").ilike("display_name", cleanUsername).limit(1);
+      if (existingName?.length) { setError("Nama sudah digunakan. Gunakan nama yang berbeda."); return; }
+    }
     if (profile?.role === "bendahara" && role !== "anggota") { setError("Bendahara hanya dapat menambahkan akun anggota."); return; }
     const { data: newId, error: createError } = await supabase.rpc("create_account", { p_username: cleanUsername, p_display_name: cleanUsername, p_password: passwordForNewAccount, p_role: role, p_nik_ktp: optional.nik_ktp, p_nik_kk: optional.nik_kk, p_nomor_hp: optional.nomor_hp });
     if (createError) { setError(createError.message); return; }
