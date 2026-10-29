@@ -27,7 +27,15 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const guestProfile: AppProfile = { id: "guest", username: "Tamu", display_name: "Tamu", role: "anggota", nik_ktp: null, nik_kk: null, nomor_hp: null };
 
-function usernameToEmail(username: string) { return `${username.trim().toLowerCase().replace(/\s+/g, ".")}@kas-bendungan.id`; }
+function nameToEmail(name: string) {
+  const alias = name.trim().toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
+  return `${alias}@kas-bendungan.id`;
+}
+function nameLoginEmails(name: string) {
+  const baseEmail = nameToEmail(name);
+  const [localPart, domain] = baseEmail.split("@");
+  return [baseEmail, ...Array.from({ length: 10 }, (_, index) => `${localPart}.${index + 1}@${domain}`)];
+}
 async function logActivity(category: string, action: string, description: string) {
   if (!supabase) return;
   const { data: sessionData } = await supabase.auth.getSession();
@@ -86,7 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isGuest,
     signIn: async (username, password) => {
       if (!supabase) return { error: "Supabase belum dikonfigurasi." };
-      const { error } = await supabase.auth.signInWithPassword({ email: usernameToEmail(username), password });
+      let error: { message: string } | null = null;
+      for (const email of nameLoginEmails(username)) {
+        const result = await supabase.auth.signInWithPassword({ email, password });
+        if (!result.error) { error = null; break; }
+        error = result.error;
+      }
       if (!error) await logActivity("Autentikasi", "LOGIN", `Login oleh ${username.trim()}`);
       return { error: error?.message ?? null };
     },

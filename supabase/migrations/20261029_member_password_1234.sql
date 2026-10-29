@@ -45,7 +45,7 @@ begin
   end if;
   if exists (select 1 from public.profiles where lower(username) = normalized)
     or exists (select 1 from auth.users where lower(email) = normalized || '@kas-bendungan.id') then
-    raise exception 'Username sudah digunakan';
+    raise exception 'Nama sudah digunakan';
   end if;
 
   new_id := gen_random_uuid();

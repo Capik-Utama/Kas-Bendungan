@@ -181,14 +181,14 @@ declare
   email_local text;
 begin
   if auth.uid() is null or clean_username = '' then
-    raise exception 'Username tidak valid';
+    raise exception 'Nama tidak valid';
   end if;
   if exists (select 1 from public.profiles p where lower(p.username) = lower(clean_username) and p.id <> auth.uid()) then
-    raise exception 'Username sudah digunakan';
+    raise exception 'Nama sudah digunakan';
   end if;
   email_local := lower(regexp_replace(clean_username, '\s+', '.', 'g'));
   if exists (select 1 from auth.users u where lower(u.email) = email_local || '@kas-bendungan.id' and u.id <> auth.uid()) then
-    raise exception 'Username sudah digunakan';
+    raise exception 'Nama sudah digunakan';
   end if;
   update auth.users
   set email = email_local || '@kas-bendungan.id',

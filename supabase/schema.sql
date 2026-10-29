@@ -1,5 +1,5 @@
 -- Jalankan seluruh file ini di Supabase SQL Editor.
--- Akun login memakai email internal berbentuk username@kas-bendungan.id.
+-- Akun login memakai email internal berbentuk nama@kas-bendungan.id.
 
 create extension if not exists pgcrypto;
 
