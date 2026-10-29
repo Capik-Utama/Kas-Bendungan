@@ -44,6 +44,7 @@ export default function PengeluaranPage() {
   const [groupCards, setGroupCards] = useState<GroupCard[]>([]);
   const [groups, setGroups] = useState<GroupOption[]>([]);
   const [officers, setOfficers] = useState<Officer[]>([]);
+  const [allOfficers, setAllOfficers] = useState<Officer[]>([]);
   const [kartuId, setKartuId] = useState(scopedKartuId ? String(scopedKartuId) : "");
   const [sortKey, setSortKey] = useState<"tanggal" | "nominal" | "keterangan">("tanggal");
   const [sortAsc, setSortAsc] = useState(false);
@@ -75,6 +76,7 @@ export default function PengeluaranPage() {
     const activeCardName = loadedCards.find((card) => card.id === scopedKartuId)?.nama;
     const activeGroupId = ((groupsResult.data as GroupOption[]) ?? []).find((group) => group.nama === activeCardName)?.id;
     const loadedOfficers = (officersResult.data as Officer[]) ?? [];
+    setAllOfficers(loadedOfficers);
     setOfficers(scopedKartuId && activeGroupId
       ? loadedOfficers.filter((officer) => (officer.profile_kelompok ?? []).some((membership) => membership.kelompok_id === activeGroupId))
       : []);
@@ -119,7 +121,10 @@ export default function PengeluaranPage() {
     if (!scopedKartuId) { setError("Buka form pengeluaran dari kartu kelompok terlebih dahulu."); return; }
     if (jenisKeperluan === "Ke kelompok lain" && !tujuanKelompokId) { setError("Pilih kelompok tujuan."); return; }
     if (jenisKeperluan === "Ke petugas lain" && !tujuanPetugasId) { setError("Pilih petugas tujuan."); return; }
-    if (jenisKeperluan === "Ke petugas lain" && !officers.some((officer) => officer.id === tujuanPetugasId)) { setError("Petugas tujuan tidak terdaftar sebagai pengurus kelompok ini."); return; }
+    const targetOfficers = jenisKeperluan === "Ke kelompok lain"
+      ? allOfficers.filter((officer) => (officer.profile_kelompok ?? []).some((membership) => membership.kelompok_id === Number(tujuanKelompokId)))
+      : officers;
+    if ((jenisKeperluan === "Ke petugas lain" || jenisKeperluan === "Ke kelompok lain") && !targetOfficers.some((officer) => officer.id === tujuanPetugasId)) { setError("Petugas tujuan tidak terdaftar pada kelompok transaksi yang dipilih."); return; }
 
     const payload = {
       tanggal,
@@ -157,7 +162,7 @@ export default function PengeluaranPage() {
       {canEdit && showForm && <form onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-4">
         <input required type="date" value={tanggal} onChange={(event) => setTanggal(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2" />
         <select required value={jenisKeperluan} onChange={(event) => { const next = event.target.value as ExpensePurpose; setJenisKeperluan(next); setTujuanKelompokId(""); setTujuanPetugasId(""); }} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="Ke kelompok lain">Ke kelompok lain</option><option value="Ke petugas lain">Ke petugas lain</option><option value="Kebutuhan kelompok">Kebutuhan kelompok</option></select>
-        {jenisKeperluan === "Ke kelompok lain" && <><select required value={tujuanKelompokId} onChange={(event) => setTujuanKelompokId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok tujuan</option>{groups.filter((group) => group.nama !== groupCards.find((card) => card.id === Number(kartuId))?.nama).map((group) => <option key={group.id} value={group.id}>{group.nama}</option>)}</select><select required value={tujuanPetugasId} onChange={(event) => setTujuanPetugasId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih petugas tujuan</option>{officers.map((officer) => <option key={officer.id} value={officer.id}>{officer.username}</option>)}</select></>}
+        {jenisKeperluan === "Ke kelompok lain" && <><select required value={tujuanKelompokId} onChange={(event) => { setTujuanKelompokId(event.target.value); setTujuanPetugasId(""); }} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih kelompok tujuan</option>{groups.filter((group) => group.nama !== groupCards.find((card) => card.id === Number(kartuId))?.nama).map((group) => <option key={group.id} value={group.id}>{group.nama}</option>)}</select><select required value={tujuanPetugasId} onChange={(event) => setTujuanPetugasId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">{tujuanKelompokId ? "Pilih petugas tujuan" : "Pilih kelompok tujuan terlebih dahulu"}</option>{allOfficers.filter((officer) => (officer.profile_kelompok ?? []).some((membership) => membership.kelompok_id === Number(tujuanKelompokId))).map((officer) => <option key={officer.id} value={officer.id}>{officer.username}</option>)}</select></>}
         {jenisKeperluan === "Ke petugas lain" && <select required value={tujuanPetugasId} onChange={(event) => setTujuanPetugasId(event.target.value)} className="rounded-lg border border-zinc-300 px-3 py-2"><option value="">Pilih petugas tujuan</option>{officers.filter((officer) => officer.id !== profile?.id).map((officer) => <option key={officer.id} value={officer.id}>{officer.username}</option>)}</select>}
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 md:col-span-2">Sumber transaksi: <strong>{groupCards.find((card) => card.id === scopedKartuId)?.nama || "Kelompok ini"}</strong></p>
         <input value={keperluan} onChange={(event) => setKeperluan(event.target.value)} placeholder="Detail keperluan (opsional)" className="rounded-lg border border-zinc-300 px-3 py-2" />
