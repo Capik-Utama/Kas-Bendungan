@@ -300,7 +300,8 @@ export default function WargaPage() {
 
   const startAdd = () => {
     if (showForm && !editing) { setShowForm(false); return; }
-    setEditing(null); setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setAccountRole("anggota"); setAccountPassword(""); setSelectedGroups([]); setNotice(null); setShowForm(true);
+    const activeGroupId = groupFilter ? groups.find((group) => group.nama === groupFilter)?.id : undefined;
+    setEditing(null); setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setAccountRole("anggota"); setAccountPassword(""); setSelectedGroups(activeGroupId ? [activeGroupId] : []); setNotice(null); setShowForm(true);
   };
   const startEdit = (item: Warga) => {
     const memberGroups = (item.warga_kelompok || []).map((membership) => membership.kelompok_id);
