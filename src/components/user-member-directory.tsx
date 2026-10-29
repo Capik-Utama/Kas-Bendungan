@@ -52,26 +52,38 @@ export default function UserMemberDirectory({ groups, members, rolesByWargaId, s
     <div className="group-tabs" role="tablist" aria-label="Filter kelompok">
       {groupNames.map((name) => <button key={name} type="button" className={activeGroup === name ? "selected" : ""} onClick={() => onSelectGroup(name)}>{name}</button>)}
     </div>
-    <div className="user-table-wrap member-directory-table-wrap">
-      <table className="user-table member-directory-table">
-        <thead><tr><th>No</th><th>Nama</th><th>Alamat</th><th>No. HP</th><th>Kelompok</th><th>Role</th><th>KTP</th><th>KK</th><th>Aksi</th></tr></thead>
+    <div className="max-h-[min(68vh,720px)] overflow-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <table className="min-w-[1380px] text-left text-sm">
+        <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-700">
+          <tr>
+            <th className="whitespace-nowrap px-4 py-3">No</th>
+            <th className="whitespace-nowrap px-4 py-3">Nama</th>
+            <th className="whitespace-nowrap px-4 py-3">Alamat</th>
+            <th className="whitespace-nowrap px-4 py-3">No. HP</th>
+            <th className="whitespace-nowrap px-4 py-3">Kelompok</th>
+            <th className="whitespace-nowrap px-4 py-3">Role</th>
+            <th className="whitespace-nowrap px-4 py-3">KTP</th>
+            <th className="whitespace-nowrap px-4 py-3">KK</th>
+            <th className="whitespace-nowrap px-4 py-3">Aksi</th>
+          </tr>
+        </thead>
         <tbody>
           {visibleMembers.map((member, index) => {
             const role = rolesByWargaId[member.id] ?? "anggota";
             const groupNamesForMember = memberGroupNames(member);
-            return <tr key={member.id}>
-              <td>{index + 1}</td>
-              <td className="member-directory-name">{member.nama || "-"}</td>
-              <td>{member.alamat_rt || "-"}</td>
-              <td>{isRestricted ? maskPhone(member.nomor_telepon) : member.nomor_telepon || "-"}</td>
-              <td>{groupNamesForMember.join(", ") || "-"}</td>
-              <td><span className={`role-pill role-${role}`}>{roleLabel(role)}</span></td>
-              <td>{isRestricted ? maskFixed(member.nik_ktp, 6) : member.nik_ktp || "-"}</td>
-              <td>{isRestricted ? maskFixed(member.nik_kk, 6) : member.nik_kk || "-"}</td>
-              <td><Link className="edit-user" href={membersUrl(groupForLink(member))}>{canEdit ? "Kelola" : "Lihat"}</Link></td>
+            return <tr key={member.id} className="border-t border-zinc-200 align-top">
+              <td className="whitespace-nowrap px-4 py-3">{index + 1}</td>
+              <td className="whitespace-nowrap px-4 py-3 font-medium">{member.nama || "-"}</td>
+              <td className="px-4 py-3">{member.alamat_rt || "-"}</td>
+              <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskPhone(member.nomor_telepon) : member.nomor_telepon || "-"}</td>
+              <td className="whitespace-nowrap px-4 py-3">{groupNamesForMember.join(", ") || "-"}</td>
+              <td className="whitespace-nowrap px-4 py-3"><span className={`role-pill role-${role}`}>{roleLabel(role)}</span></td>
+              <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskFixed(member.nik_ktp, 6) : member.nik_ktp || "-"}</td>
+              <td className="whitespace-nowrap px-4 py-3">{isRestricted ? maskFixed(member.nik_kk, 6) : member.nik_kk || "-"}</td>
+              <td className="whitespace-nowrap px-4 py-3"><Link className="edit-user" href={membersUrl(groupForLink(member))}>{canEdit ? "Kelola" : "Lihat"}</Link></td>
             </tr>;
           })}
-          {visibleMembers.length === 0 && <tr><td colSpan={9} className="empty-table-note">{activeGroup === "Semua" ? "Belum ada data anggota." : `Belum ada anggota di ${activeGroup}.`}</td></tr>}
+          {visibleMembers.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-zinc-500">{activeGroup === "Semua" ? "Belum ada data anggota." : `Belum ada anggota di ${activeGroup}.`}</td></tr>}
         </tbody>
       </table>
     </div>
