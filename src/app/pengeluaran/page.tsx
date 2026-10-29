@@ -27,7 +27,7 @@ type PengeluaranItem = {
 };
 type GroupCard = { id: number; nama: string };
 type GroupOption = { id: number; nama: string };
-type Officer = { id: string; username: string; role: string };
+type Officer = { id: string; username: string; role: string; profile_kelompok?: { kelompok_id: number }[] };
 
 export default function PengeluaranPage() {
   const { canEdit, profile } = useAuth();
@@ -60,7 +60,7 @@ export default function PengeluaranPage() {
       supabase.from("pengeluaran").select("id, tanggal, keperluan, jenis_keperluan, nominal, keterangan, kartu_id, tujuan_kelompok_id, tujuan_petugas_id, tujuanKelompok:tujuan_kelompok_id(nama), tujuanPetugas:tujuan_petugas_id(username)").order("tanggal", { ascending: false }),
       supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").order("nama"),
       supabase.from("kelompok").select("id, nama").order("nama"),
-      supabase.from("profiles").select("id, username, role").in("role", ["developer", "ketua", "bendahara"]).order("username"),
+      supabase.from("profiles").select("id, username, role, profile_kelompok(kelompok_id)").in("role", ["developer", "ketua", "bendahara"]).order("username"),
     ]);
 
     if (loadError || cardsResult.error || groupsResult.error || officersResult.error) {
@@ -72,7 +72,12 @@ export default function PengeluaranPage() {
     const loadedCards = (cardsResult.data as GroupCard[]) ?? [];
     setGroupCards(scopedKartuId ? loadedCards.filter((card) => card.id === scopedKartuId) : loadedCards);
     setGroups((groupsResult.data as GroupOption[]) ?? []);
-    setOfficers((officersResult.data as Officer[]) ?? []);
+    const activeCardName = loadedCards.find((card) => card.id === scopedKartuId)?.nama;
+    const activeGroupId = ((groupsResult.data as GroupOption[]) ?? []).find((group) => group.nama === activeCardName)?.id;
+    const loadedOfficers = (officersResult.data as Officer[]) ?? [];
+    setOfficers(scopedKartuId && activeGroupId
+      ? loadedOfficers.filter((officer) => (officer.profile_kelompok ?? []).some((membership) => membership.kelompok_id === activeGroupId))
+      : []);
     setError(null);
   };
 
@@ -114,6 +119,7 @@ export default function PengeluaranPage() {
     if (!scopedKartuId) { setError("Buka form pengeluaran dari kartu kelompok terlebih dahulu."); return; }
     if (jenisKeperluan === "Ke kelompok lain" && !tujuanKelompokId) { setError("Pilih kelompok tujuan."); return; }
     if (jenisKeperluan === "Ke petugas lain" && !tujuanPetugasId) { setError("Pilih petugas tujuan."); return; }
+    if (jenisKeperluan === "Ke petugas lain" && !officers.some((officer) => officer.id === tujuanPetugasId)) { setError("Petugas tujuan tidak terdaftar sebagai pengurus kelompok ini."); return; }
 
     const payload = {
       tanggal,
