@@ -142,10 +142,6 @@ export default function CardFolderPage() {
     if (authError) { setNotice("Password salah. Pengaturan kartu tidak diubah."); return; }
     const { error: cardError } = await supabase.from("kartu_kas").update({ nama: name, allow_tambah_anggota: current.category === "Kelompok" && editAllowMembers }).eq("id", current.id);
     if (cardError) { setNotice("Pengaturan kartu gagal disimpan"); return; }
-    if (name !== current.name) {
-      const { error: groupError } = await supabase.from("kelompok").update({ nama: name }).eq("nama", current.name);
-      if (groupError) { setNotice("Nama kartu tersimpan, tetapi nama kelompok gagal disinkronkan"); return; }
-    }
     const updated = { ...current, name, allowMembers: current.category === "Kelompok" && editAllowMembers };
     setCards((existing) => existing.map((item) => item.id === current.id ? updated : item));
     setCurrent(updated);
