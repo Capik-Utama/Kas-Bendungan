@@ -46,7 +46,7 @@ export default function WargaPage() {
   const [nikKk, setNikKk] = useState("");
   const [nikKtp, setNikKtp] = useState("");
   const [nomorTelepon, setNomorTelepon] = useState("");
-  const [iuranAwal, setIuranAwal] = useState("");
+  const [iuranAwal, setIuranAwal] = useState("0");
   const [accountRole, setAccountRole] = useState<Role>("anggota");
   const [accountPassword, setAccountPassword] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,15 +60,18 @@ export default function WargaPage() {
 
   const loadWarga = useCallback(async () => {
     if (!supabase) return;
-    const [{ data: wargaData, error: wargaError }, { data: iuranData, error: iuranError }] = await Promise.all([
+    const [{ data: wargaData, error: wargaError }, { data: iuranData, error: iuranError }, { data: cardData, error: cardError }] = await Promise.all([
       supabase.from("warga").select("id, nama, kelompok, nik_kk, nik_ktp, nomor_telepon, alamat_rt, created_at, warga_kelompok(kelompok_id)").order("nama", { ascending: true }),
       supabase.from("iuran").select("id, warga_id, nominal, keterangan, kartu_id, bulan, tanggal_bayar, created_at").order("created_at", { ascending: true }).order("id", { ascending: true }),
+      supabase.from("kartu_kas").select("id, nama").eq("kategori", "Kelompok").is("parent_id", null).order("nama"),
     ]);
     const { data: profileData, error: profileError } = canEdit ? await supabase.from("profiles").select("warga_id, role").not("warga_id", "is", null) : { data: null, error: null };
-    if (wargaError || iuranError || profileError) { setError(wargaError?.message || iuranError?.message || profileError?.message || "Data anggota belum bisa dibaca."); return; }
+    if (wargaError || iuranError || cardError || profileError) { setError(wargaError?.message || iuranError?.message || cardError?.message || profileError?.message || "Data anggota belum bisa dibaca."); return; }
+    const scopedCardId = groupFilter ? Number((cardData ?? []).find((card) => card.nama === groupFilter)?.id ?? 0) : 0;
     const nextTotals: Record<number, number> = {};
     const nextInitialIurans: Record<number, Iuran> = {};
     for (const row of (iuranData as Iuran[] ?? [])) if (row.warga_id) {
+      if (scopedCardId && Number(row.kartu_id ?? 0) !== scopedCardId) continue;
       nextTotals[row.warga_id] = (nextTotals[row.warga_id] ?? 0) + Number(row.nominal ?? 0);
       const existingInitial = nextInitialIurans[row.warga_id];
       if (!existingInitial || (row.keterangan === INITIAL_IURAN_NOTE && existingInitial.keterangan !== INITIAL_IURAN_NOTE)) nextInitialIurans[row.warga_id] = row;
@@ -79,7 +82,7 @@ export default function WargaPage() {
     setInitialIurans(nextInitialIurans);
     const memberRows = (wargaData as Omit<Warga, "role">[] | null) ?? [];
     setItems(memberRows.map((item) => ({ ...item, role: roleByWargaId[item.id] ?? "anggota" })));
-  }, [canEdit]);
+  }, [canEdit, groupFilter]);
 
   const loadGroups = useCallback(async () => {
     if (!supabase) return;
@@ -105,7 +108,7 @@ export default function WargaPage() {
     return () => clearTimeout(timeout);
   }, [loadGroups, loadWarga, loading]);
 
-  const resetForm = () => { setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setAccountRole("anggota"); setAccountPassword(""); setSelectedGroups([]); setEditing(null); setShowForm(false); };
+  const resetForm = () => { setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal("0"); setAccountRole("anggota"); setAccountPassword(""); setSelectedGroups([]); setEditing(null); setShowForm(false); };
   const toggleGroup = (id: number) => setSelectedGroups((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const saveGroups = async (wargaId: number) => { if (!supabase) return null; const { error: deleteError } = await supabase.from("warga_kelompok").delete().eq("warga_id", wargaId); if (deleteError) return deleteError; const { error: insertError } = await supabase.from("warga_kelompok").insert(selectedGroups.map((kelompok_id) => ({ warga_id: wargaId, kelompok_id }))); return insertError; };
   const ensureMemberCards = async () => {
@@ -301,7 +304,7 @@ export default function WargaPage() {
   const startAdd = () => {
     if (showForm && !editing) { setShowForm(false); return; }
     const activeGroupId = groupFilter ? groups.find((group) => group.nama === groupFilter)?.id : undefined;
-    setEditing(null); setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal(""); setAccountRole("anggota"); setAccountPassword(""); setSelectedGroups(activeGroupId ? [activeGroupId] : []); setNotice(null); setShowForm(true);
+    setEditing(null); setNama(""); setNikKk(""); setNikKtp(""); setNomorTelepon(""); setIuranAwal("0"); setAccountRole("anggota"); setAccountPassword(""); setSelectedGroups(activeGroupId ? [activeGroupId] : []); setNotice(null); setShowForm(true);
   };
   const startEdit = (item: Warga) => {
     const memberGroups = (item.warga_kelompok || []).map((membership) => membership.kelompok_id);
