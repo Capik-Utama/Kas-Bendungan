@@ -121,43 +121,9 @@ export default function RiwayatPage() {
   const sortLabel = (key: typeof sortKey) => sortKey === key ? (sortAsc ? " ↑" : " ↓") : " ↕";
   const changePageSize = (value: number) => { setPageSize(value); setPage(1); };
 
-  async function exportPdf() {
-    setExporting(true);
-    try {
-      const [{ jsPDF }, { autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text(reportTitle, 7, 9);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
-      doc.text(`Periode: ${periodLabel}  |  Dibuat: ${new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short" }).format(new Date())}`, 7, 14);
-      doc.text(`Transaksi: ${filteredItems.length}  |  Pemasukan: ${formatRupiah(totalIncome)}  |  Pengeluaran: ${formatRupiah(totalExpense)}  |  Saldo: ${formatRupiah(finalBalance)}`, 7, 19);
-      const body = sortedItems.map((item, index) => [
-        String(index + 1), isGuest ? maskName(item.nama) : item.nama || "-", item.tipe,
-        formatTanggal(item.tanggal), formatRupiah(item.nominal), item.sumber,
-        item.kelompok, isGuest ? maskName(item.petugas) : item.petugas, item.keterangan,
-      ]);
-      autoTable(doc, {
-        startY: 22,
-        margin: { left: 7, right: 7, top: 7, bottom: 7 },
-        head: [["No", "Nama", "Jenis", "Tanggal", "Nominal", "Sumber/Keperluan", "Kelompok", "Petugas", "Keterangan"]],
-        body,
-        theme: "grid",
-        tableWidth: pageWidth - 14,
-        styles: { font: "helvetica", fontSize: 5.8, cellPadding: { top: 0.45, right: 0.55, bottom: 0.45, left: 0.55 }, minCellHeight: 3, overflow: "ellipsize", valign: "middle", lineColor: [180, 185, 190], lineWidth: 0.12 },
-        headStyles: { fillColor: [226, 232, 240], textColor: [20, 30, 40], fontStyle: "bold", fontSize: 5.8 },
-        columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 25 }, 2: { cellWidth: 13 }, 3: { cellWidth: 32 }, 4: { cellWidth: 23 }, 5: { cellWidth: 30 }, 6: { cellWidth: 20 }, 7: { cellWidth: 22 }, 8: { cellWidth: "auto" } },
-        rowPageBreak: "avoid",
-      });
-      doc.save(`${formatNamaFile(reportTitle)}-${formatNamaFile(periodLabel)}.pdf`);
-    } catch (exportError) {
-      console.error("PDF export failed", exportError);
-      setError("PDF gagal dibuat. Silakan coba lagi atau pilih Excel.");
-    } finally {
-      setExporting(false);
-    }
+  function printReport() {
+    window.document.title = `${reportTitle} - ${formatNamaFile(periodLabel)}`;
+    window.print();
   }
 
   async function exportExcel() {
@@ -189,12 +155,12 @@ export default function RiwayatPage() {
   function handleExport() {
     if (isReadOnly) return;
     if (profile?.role === "developer" && exportChoice === "excel") { void exportExcel(); return; }
-    void exportPdf();
+    printReport();
   }
 
   return <section className="space-y-4">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold">Laporan Transaksi</h1><p className="text-sm text-zinc-600">Seluruh riwayat pemasukan dan pengeluaran kas.</p></div><div className="flex flex-wrap items-end gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm"><label className="grid gap-1 text-xs font-medium text-zinc-600">Dari<input type="date" value={startDate} onChange={(event) => { setStartDate(event.target.value); setPage(1); }} className="rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-800" /></label><label className="grid gap-1 text-xs font-medium text-zinc-600">Sampai<input type="date" value={endDate} onChange={(event) => { setEndDate(event.target.value); setPage(1); }} className="rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-800" /></label><button type="button" onClick={() => { setStartDate(""); setEndDate(""); setPage(1); }} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">Semua periode</button></div></div>
-    {!isReadOnly && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 print:hidden"><div><p className="font-semibold text-emerald-900">Download laporan</p><p className="text-xs text-emerald-700">Mengekspor data sesuai periode yang dipilih ({filteredItems.length} transaksi).</p></div><div className="flex items-center gap-2">{profile?.role === "developer" && <select aria-label="Format laporan" value={exportChoice} onChange={(event) => setExportChoice(event.target.value as "pdf" | "excel")} className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm text-zinc-800"><option value="pdf">PDF (.pdf)</option><option value="excel">Excel (.xlsx)</option></select>}<button type="button" onClick={handleExport} disabled={exporting} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">{exporting ? "Menyiapkan..." : "Download laporan"}</button></div></div>}
+    {!isReadOnly && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 print:hidden"><div><p className="font-semibold text-emerald-900">Download laporan</p><p className="text-xs text-emerald-700">Membuka pratinjau PDF untuk {filteredItems.length} transaksi; pilih Simpan sebagai PDF dari menu cetak.</p></div><div className="flex items-center gap-2">{profile?.role === "developer" && <select aria-label="Format laporan" value={exportChoice} onChange={(event) => setExportChoice(event.target.value as "pdf" | "excel")} className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm text-zinc-800"><option value="pdf">PDF (pratinjau)</option><option value="excel">Excel (.xlsx)</option></select>}<button type="button" onClick={handleExport} disabled={exporting} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">{exporting ? "Menyiapkan..." : profile?.role === "developer" && exportChoice === "excel" ? "Download laporan" : "Pratinjau PDF"}</button></div></div>}
     <div className="flex flex-wrap items-end gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm"><label className="grid gap-1 text-xs font-medium text-zinc-600">Kelompok<select value={groupFilter} onChange={(event) => { setGroupFilter(event.target.value); setPage(1); }} className="rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-800">{groupOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label><label className="grid gap-1 text-xs font-medium text-zinc-600">Jenis<select value={typeFilter} onChange={(event) => { setTypeFilter(event.target.value as "SEMUA" | "MASUK" | "KELUAR"); setPage(1); }} className="rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-800"><option value="SEMUA">Pemasukan & Pengeluaran</option><option value="MASUK">Pemasukan</option><option value="KELUAR">Pengeluaran</option></select></label><label className="grid gap-1 text-xs font-medium text-zinc-600">Petugas<select value={officerFilter} onChange={(event) => { setOfficerFilter(event.target.value); setPage(1); }} className="rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-800">{officerOptions.map((option) => <option key={option} value={option}>{option === "Semua" ? option : isGuest ? maskName(option) : option}</option>)}</select></label></div>
     {error ? <p className="text-sm text-red-600">{error}</p> : null}
     <div className="report-print-header hidden"><h1>{reportTitle}</h1><p>Periode: {periodLabel}</p><p>Dibuat: {new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeStyle: "short" }).format(new Date())}</p></div>
