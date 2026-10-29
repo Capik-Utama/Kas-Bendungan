@@ -81,8 +81,17 @@ export default function WargaPage() {
     setTotals(nextTotals);
     setInitialIurans(nextInitialIurans);
     const memberRows = (wargaData as Omit<Warga, "role">[] | null) ?? [];
-    setItems(memberRows.map((item) => ({ ...item, role: roleByWargaId[item.id] ?? "anggota" })));
-  }, [canEdit, groupFilter]);
+    const orphanIds = canManageMembers ? memberRows.filter((item) => !(item.warga_kelompok ?? []).length).map((item) => item.id) : [];
+    if (orphanIds.length) {
+      const { error: profileCleanupError } = await supabase.from("profiles").update({ warga_id: null }).in("warga_id", orphanIds);
+      const { error: duesCleanupError } = await supabase.from("iuran").delete().in("warga_id", orphanIds);
+      const { error: memberCleanupError } = await supabase.from("warga").delete().in("id", orphanIds);
+      if (profileCleanupError || duesCleanupError || memberCleanupError) {
+        setError(profileCleanupError?.message ?? duesCleanupError?.message ?? memberCleanupError?.message ?? "Anggota tanpa kelompok belum bisa dibersihkan.");
+      }
+    }
+    setItems(memberRows.filter((item) => !orphanIds.includes(item.id)).map((item) => ({ ...item, role: roleByWargaId[item.id] ?? "anggota" })));
+  }, [canEdit, canManageMembers, groupFilter]);
 
   const loadGroups = useCallback(async () => {
     if (!supabase) return;
